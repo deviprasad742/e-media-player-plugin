@@ -22,5 +22,45 @@
             name="Entertainment">
       </category>
    </extension>
+   <extension
+         point="org.eclipse.ui.actionSets">
+      <actionSet
+            id="eMediaPlayerPlugin.ActionSet"
+            label="eMedia Player"
+            visible="true">
+         <action
+               class="emediaplayerplugin.actions.TogglePlayStateAction"
+               icon="icons/play_button.png"
+               id="emediaplayerplugin.actions.TogglePlayStateAction"
+               label="Play/Pause"
+               style="push"
+               toolbarPath="end">
+         </action>
+         <action
+               class="emediaplayerplugin.actions.PlayNextAction"
+               icon="icons/btn_next.gif"
+               id="emediaplayerplugin.actions.PlayNextAction"
+               label="Next"
+               style="push"
+               toolbarPath="end">
+         </action>
+         <action
+               class="emediaplayerplugin.actions.PlayPreviousAction"
+               icon="icons/btn_previous.gif"
+               id="emediaplayerplugin.actions.PlayPreviousActionion"
+               label="Previous"
+               style="push"
+               toolbarPath="end">
+         </action>
+         <action
+               class="emediaplayerplugin.actions.ShowEMediaViewAction"
+               icon="icons/media_player.png"
+               id="emediaplayerplugin.actions.ShowEMediaViewAction"
+               label="Open Media View"
+               style="push"
+               toolbarPath="end">
+         </action>
+      </actionSet>
+   </extension>
 
 </plugin>

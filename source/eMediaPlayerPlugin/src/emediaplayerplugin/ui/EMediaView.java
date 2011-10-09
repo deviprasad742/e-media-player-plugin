@@ -30,8 +30,11 @@ import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchListener;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
@@ -41,6 +44,8 @@ import emediaplayerplugin.model.MediaPlayer;
 
 public class EMediaView extends ViewPart {
 
+	public static final String ID = "emediaplayerplugin.ui.EMediaView";
+	
 	private TabFolder container;
 	private OleControlSite wmPlayerSite;
 	private MediaPlayer mediaPlayer;
@@ -69,8 +74,12 @@ public class EMediaView extends ViewPart {
 			
 			@Override
 			public boolean preShutdown(IWorkbench workbench, boolean forced) {
-				mediaPlayer.savePlaylist();
-				mediaPlayer.dispose();
+				try {
+					mediaPlayer.savePlaylist();
+					mediaPlayer.dispose();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 				return true;
 			}
 			
@@ -138,14 +147,18 @@ public class EMediaView extends ViewPart {
 		deleteButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				int[] selectionIndices = playListViewer.getTable().getSelectionIndices();
-				for (int index : selectionIndices) {
-					mediaPlayer.removeItem(index);
+				int length = selectionIndices.length;
+				while (length > 0) {
+					mediaPlayer.removeItem(selectionIndices[0]);
+					length--;
 				}
-				int newIndex = selectionIndices[selectionIndices.length - 1] - 1;
-				if (newIndex == -1) {
-					newIndex ++;
+				if (selectionIndices.length > 0) {
+					int newIndex = selectionIndices[selectionIndices.length - 1] - 1;
+					if (newIndex == -1) {
+						newIndex ++;
+					}
+					playListViewer.getTable().select(newIndex);
 				}
-				playListViewer.getTable().select(newIndex);
 			}
 		});
 		
@@ -258,14 +271,33 @@ public class EMediaView extends ViewPart {
 		public Color getBackground(Object element) {
 			return null;
 		}
-
 		
 	}
 	
+	public MediaPlayer getMediaPlayer() {
+		return mediaPlayer;
+	}
 	
 	@Override
 	public void setFocus() {
 
+	}
+	
+	public static EMediaView getMediaView() {
+		IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+		IViewPart findView = activePage.findView(ID);
+		return (EMediaView) findView;
+	}
+	
+	public static EMediaView showView() {
+		IWorkbenchPage activePage = PlatformUI.getWorkbench()
+				.getActiveWorkbenchWindow().getActivePage();
+		try {
+			return (EMediaView) activePage.showView(ID);
+		} catch (PartInitException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 }

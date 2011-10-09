@@ -107,12 +107,23 @@ public class MediaPlayer extends MediaModelObject {
 			builder.append(mediaFile.getUrl());
 			builder.append(comma);
 		}
-		String playList = builder.substring(0, builder.length() -1);
+		String playList = builder.length() > 0 ? builder.substring(0, builder.length() -1) : builder.toString();
 		Activator.getDefault().getDialogSettings().put(PREF_PLAY_LIST, playList);
 	}
 	
 	public void dispose() {
 		oPlayer.dispose();
+	}
+	
+	private static final int PLAYING = 3;
+	
+	public void toggleState() {
+         Variant state = getSimpleProperty(oPlayer, "playState");		
+         if (state.getInt() == PLAYING) {
+        	 getControl().pause();
+         } else {
+        	 getControl().play();
+         }
 	}
 
 }
