@@ -299,5 +299,11 @@ public class EMediaView extends ViewPart {
 		}
 		return null;
 	}
+	
+	@Override
+	public void dispose() {
+		mediaPlayer.savePlaylist();
+		super.dispose();
+	}
 
 }
