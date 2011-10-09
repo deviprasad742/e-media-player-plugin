@@ -12,6 +12,7 @@
       <view
             category="entertainment"
             class="emediaplayerplugin.ui.EMediaView"
+            icon="icons/media_player.png"
             id="emediaplayerplugin.ui.EMediaView"
             name="eMedia"
             restorable="true">
