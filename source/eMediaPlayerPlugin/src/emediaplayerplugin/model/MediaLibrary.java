@@ -39,16 +39,16 @@ public class MediaLibrary {
 	private Map<String, List<File>> remoteLib = new HashMap<String, List<File>>();
 
 	public MediaLibrary(String local, String remote) {
-		setLocal(new File(local));
-		setRemote(new File(remote));
+		setLocal(local);
+		setRemote(remote);
 	}
 
-	public synchronized void setLocal(File local) {
-		this.local = local;
+	public synchronized void setLocal(String local) {
+		this.local = new File(local);
 	}
 
-	public synchronized void setRemote(File remote) {
-		this.remote = remote;
+	public synchronized void setRemote(String remote) {
+		this.remote = new File(remote);
 	}
 
 	public void syncAll() {
@@ -78,6 +78,9 @@ public class MediaLibrary {
 	}
 
 	private void populateFiles(Map<String, List<File>> lib, File root) {
+		if(!root.exists()) {
+			return;
+		}
 		Queue<File> files = new LinkedList<File>();
 		files.add(root);
 		while (files.peek() != null) {
@@ -210,7 +213,14 @@ public class MediaLibrary {
 			lib.put(key, list);
 		}
 		list.add(destination);
-
+	}
+	
+	public String getLocalPath() {
+		return local.getAbsolutePath();
+	}
+	
+	public String getRemotePath() {
+		return remote.getAbsolutePath();
 	}
 
 }

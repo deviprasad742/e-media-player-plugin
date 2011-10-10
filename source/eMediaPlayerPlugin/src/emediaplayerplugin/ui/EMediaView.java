@@ -13,6 +13,7 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
@@ -104,17 +105,31 @@ public class EMediaView extends ViewPart {
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
 			monitor.beginTask("Refreshing library", IProgressMonitor.UNKNOWN);
+			Display.getDefault().syncExec(new Runnable() {
+				@Override
+				public void run() {
+					setControlsEnabled(false);
+				}
+			});
+
 			mediaLibrary.syncAll();
 			Display.getDefault().asyncExec(new Runnable() {
 				@Override
 				public void run() {
 					libraryViewer.setInput(mediaLibrary);
 					refreshLibraryView();
-					libraryViewer.getTree().setEnabled(true);
+					setControlsEnabled(true);
 				}
 			});
 
 			return Status.OK_STATUS;
+		}
+		
+		private void setControlsEnabled(boolean enabled) {
+			musicLibraryFilterText.setEnabled(enabled);
+			syncAllButton.setEnabled(enabled);
+			pathsButton.setEnabled(enabled);
+			libraryViewer.getTree().setEnabled(enabled);
 		}
 
 	};
@@ -130,7 +145,7 @@ public class EMediaView extends ViewPart {
 		TabItem libraryTab = new TabItem(container, SWT.NONE);
 		libraryTab.setText("Library");
 
-		mediaLibrary = new MediaLibrary("D:\\Prasad\\Music\\Test\\local", "D:\\Prasad\\Music\\Test\\remote");
+		mediaLibrary = new MediaLibrary(LibraryPathsDialog.getLocalPath(), LibraryPathsDialog.getRemotePath());
 		Composite libraryComposite = new Composite(container, SWT.NONE);
 		libraryTab.setControl(libraryComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryComposite);
@@ -158,7 +173,7 @@ public class EMediaView extends ViewPart {
 		libraryViewer.setContentProvider(new LibraryContentProvider());
 		libraryViewer.setLabelProvider(new LibraryLabelProvider());
 		libraryViewer.setSorter(new ViewerSorter());
-		addLibrarySectionButtons(libraryComposite);
+		addLibraryButtonSection(libraryComposite);
 		libraryViewer.setFilters(new ViewerFilter[] { libraryFilter });
 
 		libraryViewer.addDoubleClickListener(new IDoubleClickListener() {
@@ -208,6 +223,10 @@ public class EMediaView extends ViewPart {
 			return text.toLowerCase().contains(filter.toLowerCase());
 		}
 	};
+
+	private Button syncAllButton;
+
+	private Button pathsButton;
 
 	private void hookContextMenu() {
 		MenuManager menuMgr = new MenuManager("#PopupMenu");
@@ -273,18 +292,31 @@ public class EMediaView extends ViewPart {
 		return files;
 	}
 
-	private void addLibrarySectionButtons(Composite parent) {
+	private void addLibraryButtonSection(Composite parent) {
 		Composite buttonsComposite = new Composite(parent, SWT.NONE);
 		GridLayoutFactory.fillDefaults().applyTo(buttonsComposite);
 		GridDataFactory.fillDefaults().grab(false, true).applyTo(buttonsComposite);
 
-		Button syncAll = new Button(buttonsComposite, SWT.PUSH);
-		syncAll.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ELCL_SYNCED));
-		syncAll.setToolTipText("Sync Libraries");
-		syncAll.addSelectionListener(new SelectionAdapter() {
+	    syncAllButton = new Button(buttonsComposite, SWT.PUSH);
+		syncAllButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ELCL_SYNCED));
+		syncAllButton.setToolTipText("Sync Libraries");
+		syncAllButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				libraryViewer.getTree().setEnabled(false);
 				syncJob.schedule();
+			}
+		});
+		
+	    pathsButton = new Button(buttonsComposite, SWT.PUSH);
+		pathsButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_HOME_NAV));
+		pathsButton.setToolTipText("Library Paths");
+		pathsButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				LibraryPathsDialog dialog = new LibraryPathsDialog(mediaLibrary.getLocalPath(), mediaLibrary.getRemotePath());
+				if (dialog.open() == IDialogConstants.OK_ID) {
+					mediaLibrary.setLocal(dialog.getLocal());
+					mediaLibrary.setRemote(dialog.getRemote());
+					syncJob.schedule();
+				}
 			}
 		});
 
@@ -486,10 +518,10 @@ public class EMediaView extends ViewPart {
 		Composite buttonsComposite = new Composite(playListComposite, SWT.NONE);
 		GridLayoutFactory.fillDefaults().applyTo(buttonsComposite);
 		GridDataFactory.fillDefaults().grab(false, true).applyTo(buttonsComposite);
-		addButtons(buttonsComposite);
+		addPlaylistButtonSection(buttonsComposite);
 	}
 
-	private void addButtons(Composite buttonsComposite) {
+	private void addPlaylistButtonSection(Composite buttonsComposite) {
 		Button addButton = new Button(buttonsComposite, SWT.PUSH);
 		addButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_ADD));
 		addButton.setToolTipText("Add To Playlist");
