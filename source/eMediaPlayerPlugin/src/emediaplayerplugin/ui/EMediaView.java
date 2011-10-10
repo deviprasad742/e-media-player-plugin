@@ -29,9 +29,12 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.jface.viewers.ViewerSorter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTError;
+import org.eclipse.swt.events.ModifyEvent;
+import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
@@ -46,9 +49,11 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbench;
@@ -73,6 +78,7 @@ public class EMediaView extends ViewPart {
 	private MediaPlayer mediaPlayer;
 	private TableViewer playListViewer;
 	private TreeViewer libraryViewer;
+	private Text musicLibraryFilterText;
 
 	private MediaLibrary mediaLibrary;
 	public static final String NAME = "Name";
@@ -130,12 +136,30 @@ public class EMediaView extends ViewPart {
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryComposite);
 		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(libraryComposite);
 
+		Composite filterComposite = new Composite(libraryComposite, SWT.NONE);
+		GridDataFactory.fillDefaults().grab(true, false).span(2,1).applyTo(filterComposite);
+		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(filterComposite);
+		
+		Label label = new Label(filterComposite, SWT.NONE);
+		label.setText("Filter");
+		GridDataFactory.swtDefaults().applyTo(label);
+		
+		musicLibraryFilterText = new Text(filterComposite, SWT.BORDER);
+		GridDataFactory.fillDefaults().grab(true, false).applyTo(musicLibraryFilterText);
+		musicLibraryFilterText.addModifyListener(new ModifyListener() {
+			@Override
+			public void modifyText(ModifyEvent e) {
+				refreshLibraryView();
+			}
+		});
+
 		libraryViewer = new TreeViewer(libraryComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryViewer.getControl());
 		libraryViewer.setContentProvider(new LibraryContentProvider());
 		libraryViewer.setLabelProvider(new LibraryLabelProvider());
 		libraryViewer.setSorter(new ViewerSorter());
 		addLibrarySectionButtons(libraryComposite);
+		libraryViewer.setFilters(new ViewerFilter[] { libraryFilter });
 
 		libraryViewer.addDoubleClickListener(new IDoubleClickListener() {
 			@Override
@@ -152,6 +176,38 @@ public class EMediaView extends ViewPart {
 		syncJob.schedule();
 		hookContextMenu();
 	}
+
+	private ViewerFilter libraryFilter = new ViewerFilter() {
+
+		@Override
+		public boolean select(Viewer viewer, Object parentElement, Object element) {
+			String filter = musicLibraryFilterText.getText().trim();
+			ILabelProvider labelProvider = (ILabelProvider) libraryViewer.getLabelProvider();
+			if (!filter.isEmpty()) {
+				if (element instanceof String) {
+					if (isMatch(filter, labelProvider.getText(element))) {
+						return true;
+					}
+					Object[] children = ((ITreeContentProvider) libraryViewer.getContentProvider()).getChildren(element);
+					for (Object child : children) {
+						String text = labelProvider.getText(child);
+						if (isMatch(filter, text)) {
+							return true;
+						}
+					}
+				} else if (element instanceof File) {
+					String text = labelProvider.getText(element);
+					String parentText = labelProvider.getText(parentElement);
+					return isMatch(filter, text) || isMatch(filter, parentText);
+				}
+			}
+			return filter.isEmpty();
+		}
+
+		private boolean isMatch(String filter, String text) {
+			return text.toLowerCase().contains(filter.toLowerCase());
+		}
+	};
 
 	private void hookContextMenu() {
 		MenuManager menuMgr = new MenuManager("#PopupMenu");
@@ -280,14 +336,15 @@ public class EMediaView extends ViewPart {
 			protected IStatus run(IProgressMonitor monitor) {
 				for (File file : files) {
 					try {
-                        mediaLibrary.addToRemoteRepository(file);
-						
+						mediaLibrary.addToRemoteRepository(file);
+
 					} catch (Exception e) {
 						EMediaPlayerActivator.getDefault().logException(null, e);
 						Display.getDefault().asyncExec(new Runnable() {
 							@Override
 							public void run() {
-								MessageDialog.openError(Display.getDefault().getActiveShell(), "Failed", "Failed to share file. See logs for details");
+								MessageDialog
+										.openError(Display.getDefault().getActiveShell(), "Failed", "Failed to share file. See logs for details");
 							}
 						});
 
