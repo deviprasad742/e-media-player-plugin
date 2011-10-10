@@ -1,23 +1,25 @@
 package emediaplayerplugin;
 
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
 /**
  * The activator class controls the plug-in life cycle
  */
-public class Activator extends AbstractUIPlugin {
+public class EMediaPlayerActivator extends AbstractUIPlugin {
 
 	// The plug-in ID
 	public static final String PLUGIN_ID = "eMediaPlayerPlugin"; //$NON-NLS-1$
 
 	// The shared instance
-	private static Activator plugin;
+	private static EMediaPlayerActivator plugin;
 	
 	/**
 	 * The constructor
 	 */
-	public Activator() {
+	public EMediaPlayerActivator() {
 	}
 
 	/*
@@ -43,8 +45,13 @@ public class Activator extends AbstractUIPlugin {
 	 *
 	 * @return the shared instance
 	 */
-	public static Activator getDefault() {
+	public static EMediaPlayerActivator getDefault() {
 		return plugin;
+	}
+	
+	public void logException(String message, Exception e) {
+		message = message == null ? e.getMessage() : message;
+		getLog().log(new Status(IStatus.ERROR, PLUGIN_ID, message, e));
 	}
 
 }

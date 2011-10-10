@@ -3,7 +3,7 @@ Bundle-ManifestVersion: 2
 Bundle-Name: EMediaPlayerPlugin
 Bundle-SymbolicName: eMediaPlayerPlugin;singleton:=true
 Bundle-Version: 1.0.0.qualifier
-Bundle-Activator: emediaplayerplugin.Activator
+Bundle-Activator: emediaplayerplugin.EMediaPlayerActivator
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime
 Bundle-ActivationPolicy: lazy

@@ -7,7 +7,7 @@ import java.util.List;
 import org.eclipse.swt.ole.win32.OleAutomation;
 import org.eclipse.swt.ole.win32.Variant;
 
-import emediaplayerplugin.Activator;
+import emediaplayerplugin.EMediaPlayerActivator;
 
 public class MediaPlayer extends MediaModelObject {
 
@@ -39,7 +39,7 @@ public class MediaPlayer extends MediaModelObject {
 	}
 
 	private void init() {
-		String playList = Activator.getDefault().getDialogSettings().get(PREF_PLAY_LIST);
+		String playList = EMediaPlayerActivator.getDefault().getDialogSettings().get(PREF_PLAY_LIST);
 		if (playList != null) {
 			String[] files = playList.split(",");
 			for (String file : files) {
@@ -108,7 +108,7 @@ public class MediaPlayer extends MediaModelObject {
 			builder.append(comma);
 		}
 		String playList = builder.length() > 0 ? builder.substring(0, builder.length() -1) : builder.toString();
-		Activator.getDefault().getDialogSettings().put(PREF_PLAY_LIST, playList);
+		EMediaPlayerActivator.getDefault().getDialogSettings().put(PREF_PLAY_LIST, playList);
 	}
 	
 	public void dispose() {
