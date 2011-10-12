@@ -120,7 +120,7 @@ public class MediaLibrary {
 			int indexOf = name.lastIndexOf(".");
 			if (indexOf != -1) {
 				String ext = name.substring(indexOf + 1);
-				return SUPPORTED_FORMATS.contains(ext);
+				return SUPPORTED_FORMATS.contains(ext.toLowerCase());
 			}
 			return false;
 		}
