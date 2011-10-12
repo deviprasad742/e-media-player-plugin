@@ -32,6 +32,8 @@ public class MediaPlayer extends MediaModelObject {
 	private MediaControl control;
 	private List<MediaFile> playList = new ArrayList<MediaFile>();
 	private IMediaPlayerListener listener;
+	private OleAutomation oSettings;
+	private OleAutomation oPlayList;
 
 	public MediaPlayer(OleAutomation oPlayer) {
 		this.oPlayer = oPlayer;
@@ -39,6 +41,10 @@ public class MediaPlayer extends MediaModelObject {
 	}
 
 	private void init() {
+		oSettings = getProperty(oPlayer, SETTINGS);
+		setProperty(oSettings, VOLUME, new Variant((long)100));
+		setRepeat(true);
+		oPlayList = getProperty(oPlayer, CURRENT_PLAYLIST);
 		String playList = EMediaPlayerActivator.getDefault().getDialogSettings().get(PREF_PLAY_LIST);
 		if (playList != null) {
 			String[] files = playList.split(",");
@@ -48,9 +54,6 @@ public class MediaPlayer extends MediaModelObject {
 				}
 			}
 		}
-		OleAutomation settingsAut = getProperty(oPlayer, SETTINGS);
-		settingsAut.setProperty(property(settingsAut, VOLUME), new Variant[] { new Variant((long)100)});
-		settingsAut.invoke(property(settingsAut, "setMode"), new Variant[] { new Variant("loop"), new Variant(true)});
 	}
 
 	public List<MediaFile> getPlayList() {
@@ -58,11 +61,10 @@ public class MediaPlayer extends MediaModelObject {
 	}
 
 	public void addToPlayList(String fileURL, boolean play) {
-		OleAutomation playListAut = getProperty(oPlayer, CURRENT_PLAYLIST);
 		Variant media = invoke(oPlayer, NEW_MEDIA, fileURL);
 		playList.add(new MediaFile(media));
-		invoke(playListAut, ADD_TO_PLAYLIST, media);
-		Variant count = getSimpleProperty(playListAut, PLAYLIST_COUNT);
+		invoke(oPlayList, ADD_TO_PLAYLIST, media);
+		Variant count = getSimpleProperty(oPlayList, PLAYLIST_COUNT);
 		if (play && count.getInt() == 1) {
 			getControl().play();
 		}
@@ -76,8 +78,7 @@ public class MediaPlayer extends MediaModelObject {
  	
 	public void removeItem(int index) {
 	    MediaFile mediaFile = playList.remove(index);
-		OleAutomation playListAut = getProperty(oPlayer, CURRENT_PLAYLIST);
-        invoke(playListAut, REMOVE_ITEM, mediaFile.getMedia());
+        invoke(oPlayList, REMOVE_ITEM, mediaFile.getMedia());
         notifyListener();
 	}
 	
@@ -113,6 +114,8 @@ public class MediaPlayer extends MediaModelObject {
 	
 	public void dispose() {
 		oPlayer.dispose();
+		oPlayList.dispose();
+		oSettings.dispose();
 	}
 	
 	private static final int PLAYING = 3;
@@ -125,5 +128,9 @@ public class MediaPlayer extends MediaModelObject {
         	 getControl().play();
          }
 	}
-
+	
+	public void setRepeat(boolean repeat) {
+		oSettings.invoke(property(oSettings, "setMode"), new Variant[] { new Variant("loop"), new Variant(true)});
+	}
+ 
 }

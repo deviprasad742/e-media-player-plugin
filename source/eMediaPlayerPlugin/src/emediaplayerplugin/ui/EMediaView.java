@@ -528,7 +528,7 @@ public class EMediaView extends ViewPart {
 		addButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				FileDialog dialog = new FileDialog(wmPlayerSite.getShell(), SWT.OPEN | SWT.MULTI);
-				dialog.setFilterExtensions(new String[] { "*.mp3" });
+				dialog.setFilterExtensions(new String[] { "*.*" });
 				String file = dialog.open();
 				if (file != null) {
 					String[] fileNames = dialog.getFileNames();

@@ -32,7 +32,21 @@ public class MediaLibrary {
 	public static final Image REMOTE_FILE = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/web.png").createImage();
 	private final static String MP3 = ".mp3";
 	private final static String WMV = ".wmv";
+	private static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();
 
+	static{
+		SUPPORTED_FORMATS.add("asf");
+		SUPPORTED_FORMATS.add("asx");
+		SUPPORTED_FORMATS.add("avi");
+		SUPPORTED_FORMATS.add("mp3");
+		SUPPORTED_FORMATS.add("mp4");
+		SUPPORTED_FORMATS.add("mpeg");
+		SUPPORTED_FORMATS.add("wav");
+		SUPPORTED_FORMATS.add("wm");
+		SUPPORTED_FORMATS.add("wmv");
+		SUPPORTED_FORMATS.add("wvx");
+	}
+	
 	private File local;
 	private File remote;
 	private Map<String, List<File>> localLib = new HashMap<String, List<File>>();
@@ -105,7 +119,12 @@ public class MediaLibrary {
 		@Override
 		public boolean accept(File file) {
 			String name = file.getName();
-			return name.endsWith(MP3) || name.endsWith(WMV);
+			int indexOf = name.lastIndexOf(".");
+			if (indexOf != -1) {
+				String ext = name.substring(indexOf + 1);
+				return SUPPORTED_FORMATS.contains(ext);
+			}
+			return false;
 		}
 	};
 

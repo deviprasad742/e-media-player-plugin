@@ -11,6 +11,8 @@ public class MediaControl extends MediaModelObject {
 	public static final String PREVIOUS = "previous";
 
 	public static final String PLAY_ITEM = "playItem";
+	public static final String CURRENT_ITEM = "currentItem";
+
 	
 	public MediaControl(OleAutomation oControl) {
 		this.oControl = oControl;
@@ -35,7 +37,8 @@ public class MediaControl extends MediaModelObject {
 	}
 	
 	public void playItem(Variant media) {
-		invoke(oControl, PLAY_ITEM, media);
+		setProperty(oControl, CURRENT_ITEM, media);
+		play();
 	}
 	
 }

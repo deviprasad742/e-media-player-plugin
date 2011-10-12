@@ -47,5 +47,13 @@ public class MediaModelObject {
 	public Variant invoke(OleAutomation auto, String command) {
 		return auto.invoke(property(auto, command));
 	}
+	
+	public boolean setProperty(OleAutomation auto, String command, Variant value) {
+		return auto.setProperty(property(auto, command), value);
+	}
 
+	public boolean setProperty(OleAutomation auto, String command, Variant[] values) {
+		return auto.setProperty(property(auto, command), values);
+	}
+	
 }
