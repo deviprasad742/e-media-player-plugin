@@ -135,9 +135,15 @@ public class EMediaView extends ViewPart {
 	};
 
 	public void refreshLibraryView() {
-		Object[] elements = libraryViewer.getExpandedElements();
-		libraryViewer.refresh();
-		libraryViewer.setExpandedElements(elements);
+		Display.getDefault().asyncExec(new Runnable() {
+			
+			@Override
+			public void run() {
+				Object[] elements = libraryViewer.getExpandedElements();
+				libraryViewer.refresh();
+				libraryViewer.setExpandedElements(elements);				
+			}
+		});
 
 	}
 
@@ -276,8 +282,8 @@ public class EMediaView extends ViewPart {
 					}
 				});
 			}
-
 		}
+		
 	}
 
 	private List<File> getSelectedFiles(IStructuredSelection structuredSelection) {
@@ -297,6 +303,15 @@ public class EMediaView extends ViewPart {
 		GridLayoutFactory.fillDefaults().applyTo(buttonsComposite);
 		GridDataFactory.fillDefaults().grab(false, true).applyTo(buttonsComposite);
 
+		Button addButton = new Button(buttonsComposite, SWT.PUSH);
+		addButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_ADD));
+		addButton.setToolTipText("Add To Library");
+		addButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				importFiles(true);
+			}
+		});
+		
 	    syncAllButton = new Button(buttonsComposite, SWT.PUSH);
 		syncAllButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ELCL_SYNCED));
 		syncAllButton.setToolTipText("Sync Libraries");
@@ -332,19 +347,21 @@ public class EMediaView extends ViewPart {
 						if (!isLocal) {
 							monitor.beginTask("Downloading files from shared library", IProgressMonitor.UNKNOWN);
 						}
-						final File localFile = mediaLibrary.getLocalFile(file);
+						
+					    File localFile = mediaLibrary.getLocalFile(file);
+						mediaPlayer.addToPlayList(localFile.getAbsolutePath(), false);
 						Display.getDefault().asyncExec(new Runnable() {
 							@Override
 							public void run() {
-								mediaPlayer.addToPlayList(localFile.getAbsolutePath(), false);
 								if (play) {
 									mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
-								}
-								if (!isLocal) {
-									refreshLibraryView();
-								}
+								}								
 							}
 						});
+						
+						if (!isLocal) {
+							refreshLibraryView();
+						}
 					} catch (Exception e) {
 						EMediaPlayerActivator.getDefault().logException(null, e);
 						Display.getDefault().asyncExec(new Runnable() {
@@ -527,16 +544,7 @@ public class EMediaView extends ViewPart {
 		addButton.setToolTipText("Add To Playlist");
 		addButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				FileDialog dialog = new FileDialog(wmPlayerSite.getShell(), SWT.OPEN | SWT.MULTI);
-				dialog.setFilterExtensions(new String[] { "*.*" });
-				String file = dialog.open();
-				if (file != null) {
-					String[] fileNames = dialog.getFileNames();
-					for (String filename : fileNames) {
-						mediaPlayer.addToPlayList(dialog.getFilterPath() + File.separator + filename, true);
-					}
-				}
-
+				importFiles(false);
 			}
 		});
 
@@ -576,6 +584,28 @@ public class EMediaView extends ViewPart {
 
 	}
 
+	private void importFiles(boolean library) {
+		FileDialog dialog = new FileDialog(wmPlayerSite.getShell(), SWT.OPEN | SWT.MULTI);
+		dialog.setFilterExtensions(new String[] { "*.*" });
+		String file = dialog.open();
+		if (file != null) {
+			String[] fileNames = dialog.getFileNames();
+			for (String filename : fileNames) {
+				String fileURL = dialog.getFilterPath() + File.separator + filename;
+				if (library) {
+					try {
+						mediaLibrary.addToLocalRepository(new File(fileURL));
+					    refreshLibraryView();
+					} catch (Exception e) {
+						EMediaPlayerActivator.getDefault().logException(null, e);
+					}
+				} else {
+					mediaPlayer.addToPlayList(fileURL, true);
+				}
+			}
+		}
+	}
+	
 	private void addPlayListViewer(Composite playListComposite) {
 		playListViewer = new TableViewer(playListComposite, SWT.FULL_SELECTION | SWT.MULTI | SWT.BORDER);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(playListViewer.getTable());
@@ -602,7 +632,13 @@ public class EMediaView extends ViewPart {
 		mediaPlayer.setListener(new IMediaPlayerListener() {
 			@Override
 			public void handleEvent(int eventKind) {
-				playListViewer.refresh();
+				Display.getDefault().asyncExec(new Runnable() {
+					
+					@Override
+					public void run() {
+						playListViewer.refresh();
+					}
+				});
 			}
 		});
 

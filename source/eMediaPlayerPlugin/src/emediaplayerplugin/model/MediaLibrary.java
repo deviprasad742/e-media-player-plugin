@@ -30,8 +30,6 @@ public class MediaLibrary {
 	public static final Image FILE = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FILE);
 	public static final Image REMOTE_FOLDER = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/remote-folder.png").createImage();
 	public static final Image REMOTE_FILE = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/web.png").createImage();
-	private final static String MP3 = ".mp3";
-	private final static String WMV = ".wmv";
 	private static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();
 
 	static{
