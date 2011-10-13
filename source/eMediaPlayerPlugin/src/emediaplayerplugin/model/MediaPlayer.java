@@ -1,8 +1,12 @@
 package emediaplayerplugin.model;
 
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 import org.eclipse.swt.ole.win32.OleAutomation;
 import org.eclipse.swt.ole.win32.Variant;
@@ -25,8 +29,7 @@ public class MediaPlayer extends MediaModelObject {
 	public static final String VOLUME = "volume";
 
 
-	
-	private static final String PREF_PLAY_LIST = "emediaplayerplugin.model.MediaPlayer.prefPlayList";
+	private static final String PLAY_LIST_FILE = "C:\\Program Files\\EMediaPlayerPlugin\\playlist.japf";
 
 	public OleAutomation oPlayer;
 	private MediaControl control;
@@ -45,7 +48,21 @@ public class MediaPlayer extends MediaModelObject {
 		setProperty(oSettings, VOLUME, new Variant((long)100));
 		setRepeat(true);
 		oPlayList = getProperty(oPlayer, CURRENT_PLAYLIST);
-		String playList = EMediaPlayerActivator.getDefault().getDialogSettings().get(PREF_PLAY_LIST);
+		loadPlaylist();
+	}
+
+	private void loadPlaylist() {
+		String playList = null;
+		File propertiesFile = new File(PLAY_LIST_FILE);
+		if (propertiesFile.exists()) {
+			Properties properties = new Properties();
+			try {
+				properties.load(new FileReader(propertiesFile));
+				playList = properties.getProperty(CURRENT_PLAYLIST);
+			} catch (Exception e) {
+				EMediaPlayerActivator.getDefault().logException(e);
+			}
+		}
 		if (playList != null) {
 			String[] files = playList.split(",");
 			for (String file : files) {
@@ -101,7 +118,7 @@ public class MediaPlayer extends MediaModelObject {
 		this.listener = listener;
 	}
 	
-	public void savePlaylist() {
+	public void savePlaylist() throws IOException {
 		String comma = ",";
 		StringBuilder builder = new StringBuilder();
 		for (MediaFile mediaFile : playList) {
@@ -109,7 +126,11 @@ public class MediaPlayer extends MediaModelObject {
 			builder.append(comma);
 		}
 		String playList = builder.length() > 0 ? builder.substring(0, builder.length() -1) : builder.toString();
-		EMediaPlayerActivator.getDefault().getDialogSettings().put(PREF_PLAY_LIST, playList);
+		File propertiesFile = new File(PLAY_LIST_FILE);
+		propertiesFile.getParentFile().mkdirs();
+		Properties properties = new Properties();
+		properties.put(CURRENT_PLAYLIST, playList);
+		properties.store(new FileWriter(propertiesFile), null);
 	}
 	
 	public void dispose() {

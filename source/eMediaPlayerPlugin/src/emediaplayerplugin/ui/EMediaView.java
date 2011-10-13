@@ -1,6 +1,8 @@
 package emediaplayerplugin.ui;
 
+import java.awt.Desktop;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,6 +15,7 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.layout.GridDataFactory;
@@ -105,43 +108,28 @@ public class EMediaView extends ViewPart {
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
 			monitor.beginTask("Refreshing library", IProgressMonitor.UNKNOWN);
-			Display.getDefault().syncExec(new Runnable() {
-				@Override
-				public void run() {
-					setControlsEnabled(false);
-				}
-			});
-
 			mediaLibrary.syncAll();
 			Display.getDefault().asyncExec(new Runnable() {
 				@Override
 				public void run() {
 					libraryViewer.setInput(mediaLibrary);
 					refreshLibraryView();
-					setControlsEnabled(true);
 				}
 			});
 
 			return Status.OK_STATUS;
-		}
-		
-		private void setControlsEnabled(boolean enabled) {
-			musicLibraryFilterText.setEnabled(enabled);
-			syncAllButton.setEnabled(enabled);
-			pathsButton.setEnabled(enabled);
-			libraryViewer.getTree().setEnabled(enabled);
 		}
 
 	};
 
 	public void refreshLibraryView() {
 		Display.getDefault().asyncExec(new Runnable() {
-			
+
 			@Override
 			public void run() {
 				Object[] elements = libraryViewer.getExpandedElements();
 				libraryViewer.refresh();
-				libraryViewer.setExpandedElements(elements);				
+				libraryViewer.setExpandedElements(elements);
 			}
 		});
 
@@ -158,13 +146,13 @@ public class EMediaView extends ViewPart {
 		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(libraryComposite);
 
 		Composite filterComposite = new Composite(libraryComposite, SWT.NONE);
-		GridDataFactory.fillDefaults().grab(true, false).span(2,1).applyTo(filterComposite);
+		GridDataFactory.fillDefaults().grab(true, false).span(2, 1).applyTo(filterComposite);
 		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(filterComposite);
-		
+
 		Label label = new Label(filterComposite, SWT.NONE);
 		label.setText("Filter");
 		GridDataFactory.swtDefaults().applyTo(label);
-		
+
 		musicLibraryFilterText = new Text(filterComposite, SWT.BORDER);
 		GridDataFactory.fillDefaults().grab(true, false).applyTo(musicLibraryFilterText);
 		musicLibraryFilterText.addModifyListener(new ModifyListener() {
@@ -258,8 +246,18 @@ public class EMediaView extends ViewPart {
 		}
 		final List<File> selectedFiles = getSelectedFiles(structuredSelection);
 
-		boolean isEnabled = !hasFolders || structuredSelection.size() == 1;
+		boolean singleSelection = structuredSelection.size() == 1;
+		boolean isEnabled = !hasFolders || singleSelection;
 		if (isEnabled) {
+			if (singleSelection) {
+				manager.add(new Action("Play") {
+					@Override
+					public void run() {
+						addToPlayList(selectedFiles, true);
+					}
+				});
+			}
+
 			manager.add(new Action("Eneque") {
 				@Override
 				public void run() {
@@ -269,12 +267,13 @@ public class EMediaView extends ViewPart {
 
 			boolean canExport = false;
 			for (File file : selectedFiles) {
-				if (!mediaLibrary.isRemoteFile(file)) {
+				if (mediaLibrary.isRemoteShareRequired(file)) {
 					canExport = true;
 				}
 			}
 
 			if (canExport) {
+				manager.add(new Separator());
 				manager.add(new Action("Share") {
 					@Override
 					public void run() {
@@ -283,7 +282,22 @@ public class EMediaView extends ViewPart {
 				});
 			}
 		}
-		
+
+		if (singleSelection) {
+			manager.add(new Separator());
+			manager.add(new Action("Open Location") {
+				@Override
+				public void run() {
+					File file = selectedFiles.get(0);
+					try {
+						Desktop.getDesktop().browse(file.getParentFile().toURI());
+					} catch (IOException e) {
+						EMediaPlayerActivator.getDefault().logException(e);
+					}
+				}
+			});
+		}
+
 	}
 
 	private List<File> getSelectedFiles(IStructuredSelection structuredSelection) {
@@ -311,8 +325,8 @@ public class EMediaView extends ViewPart {
 				importFiles(true);
 			}
 		});
-		
-	    syncAllButton = new Button(buttonsComposite, SWT.PUSH);
+
+		syncAllButton = new Button(buttonsComposite, SWT.PUSH);
 		syncAllButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ELCL_SYNCED));
 		syncAllButton.setToolTipText("Sync Libraries");
 		syncAllButton.addSelectionListener(new SelectionAdapter() {
@@ -320,8 +334,8 @@ public class EMediaView extends ViewPart {
 				syncJob.schedule();
 			}
 		});
-		
-	    pathsButton = new Button(buttonsComposite, SWT.PUSH);
+
+		pathsButton = new Button(buttonsComposite, SWT.PUSH);
 		pathsButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_HOME_NAV));
 		pathsButton.setToolTipText("Library Paths");
 		pathsButton.addSelectionListener(new SelectionAdapter() {
@@ -347,23 +361,23 @@ public class EMediaView extends ViewPart {
 						if (!isLocal) {
 							monitor.beginTask("Downloading files from shared library", IProgressMonitor.UNKNOWN);
 						}
-						
-					    File localFile = mediaLibrary.getLocalFile(file);
+
+						File localFile = mediaLibrary.getLocalFile(file);
 						mediaPlayer.addToPlayList(localFile.getAbsolutePath(), false);
-						Display.getDefault().asyncExec(new Runnable() {
+						Display.getDefault().syncExec(new Runnable() {
 							@Override
 							public void run() {
 								if (play) {
 									mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
-								}								
+								}
 							}
 						});
-						
+
 						if (!isLocal) {
 							refreshLibraryView();
 						}
 					} catch (Exception e) {
-						EMediaPlayerActivator.getDefault().logException(null, e);
+						EMediaPlayerActivator.getDefault().logException(e);
 						Display.getDefault().asyncExec(new Runnable() {
 							@Override
 							public void run() {
@@ -388,7 +402,7 @@ public class EMediaView extends ViewPart {
 						mediaLibrary.addToRemoteRepository(file);
 
 					} catch (Exception e) {
-						EMediaPlayerActivator.getDefault().logException(null, e);
+						EMediaPlayerActivator.getDefault().logException(e);
 						Display.getDefault().asyncExec(new Runnable() {
 							@Override
 							public void run() {
@@ -476,10 +490,11 @@ public class EMediaView extends ViewPart {
 		public Image getImage(Object element) {
 			if (element instanceof File) {
 				File file = (File) element;
-				return mediaLibrary.isLocalFile(file) ? MediaLibrary.FILE : MediaLibrary.REMOTE_FILE;
+				return mediaLibrary.isRemoteLocal() || mediaLibrary.isLocalFile(file) ? MediaLibrary.FILE : MediaLibrary.REMOTE_FILE;
 			} else if (element instanceof String) {
 				String key = element.toString();
-				return mediaLibrary.isLocalFolder(key) ? MediaLibrary.FOLDER : MediaLibrary.REMOTE_FOLDER;
+				return mediaLibrary.isLocalFolder(key) ? MediaLibrary.FOLDER : (mediaLibrary.isRemoteLocal() ? MediaLibrary.REMOTE_LOCAL_FOLDER
+						: MediaLibrary.REMOTE_FOLDER);
 			}
 			return null;
 		}
@@ -535,16 +550,16 @@ public class EMediaView extends ViewPart {
 		Composite buttonsComposite = new Composite(playListComposite, SWT.NONE);
 		GridLayoutFactory.fillDefaults().applyTo(buttonsComposite);
 		GridDataFactory.fillDefaults().grab(false, true).applyTo(buttonsComposite);
-		addPlaylistButtonSection(buttonsComposite);
+		addPlaylistActionsAndButtons(buttonsComposite);
 	}
 
-	private void addPlaylistButtonSection(Composite buttonsComposite) {
+	private void addPlaylistActionsAndButtons(Composite buttonsComposite) {
 		Button addButton = new Button(buttonsComposite, SWT.PUSH);
 		addButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_ADD));
 		addButton.setToolTipText("Add To Playlist");
 		addButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				importFiles(false);
+				addToPlaylistAction.run();
 			}
 		});
 
@@ -552,21 +567,11 @@ public class EMediaView extends ViewPart {
 		deleteButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_DELETE));
 		deleteButton.setToolTipText("Remove From Playlist");
 		deleteButton.addSelectionListener(new SelectionAdapter() {
+
 			public void widgetSelected(SelectionEvent e) {
-				int[] selectionIndices = playListViewer.getTable().getSelectionIndices();
-				int length = selectionIndices.length;
-				while (length > 0) {
-					mediaPlayer.removeItem(selectionIndices[0]);
-					length--;
-				}
-				if (selectionIndices.length > 0) {
-					int newIndex = selectionIndices[selectionIndices.length - 1] - 1;
-					if (newIndex == -1) {
-						newIndex++;
-					}
-					playListViewer.getTable().select(newIndex);
-				}
+				removeFromPlaylistAction.run();
 			}
+
 		});
 
 		Button clearButton = new Button(buttonsComposite, SWT.PUSH);
@@ -574,15 +579,113 @@ public class EMediaView extends ViewPart {
 		clearButton.setToolTipText("Clear Playlist");
 		clearButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				int count = playListViewer.getTable().getItemCount();
-				while (count > 0) {
-					mediaPlayer.removeItem(--count);
-				}
-
+				clearPlayListAction.run();
+			}
+		});
+		
+		Button saveButton = new Button(buttonsComposite, SWT.PUSH);
+		saveButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_SAVE_EDIT));
+		saveButton.setToolTipText("Save Playlist");
+		saveButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				savePlaylistAction.run();
 			}
 		});
 
+		MenuManager menuMgr = new MenuManager("#PopupMenu");
+		menuMgr.setRemoveAllWhenShown(true);
+		menuMgr.addMenuListener(new IMenuListener() {
+			public void menuAboutToShow(IMenuManager manager) {
+				fillPlaylistContextMenu(manager);
+			}
+		});
+		Menu menu = menuMgr.createContextMenu(playListViewer.getControl());
+		playListViewer.getControl().setMenu(menu);
+		getSite().registerContextMenu(menuMgr, playListViewer);
+
 	}
+
+	private void fillPlaylistContextMenu(IMenuManager manager) {
+		final IStructuredSelection structuredSelection = (IStructuredSelection) playListViewer.getSelection();
+		if (structuredSelection.size() == 1) {
+			manager.add(playFileAction);
+		}
+		manager.add(addToPlaylistAction);
+		manager.add(new Separator());
+		if (!structuredSelection.isEmpty()) {
+			manager.add(removeFromPlaylistAction);
+		}
+
+		if (playListViewer.getTable().getItemCount() != 0) {
+			manager.add(clearPlayListAction);
+		}
+
+		if (structuredSelection.size() == 1) {
+			manager.add(new Separator());
+			manager.add(new Action("Open Location") {
+				public void run() {
+					MediaFile mediaFile = (MediaFile) structuredSelection.getFirstElement();
+					try {
+						Desktop.getDesktop().browse(new File(mediaFile.getUrl()).getParentFile().toURI());
+					} catch (IOException e) {
+						EMediaPlayerActivator.getDefault().logException(e);
+					}
+				};
+			});
+		}
+	}
+
+	private Action savePlaylistAction = new Action("Save Playlist") {
+		public void run() {
+			try {
+				mediaPlayer.savePlaylist();
+			} catch (IOException e) {
+				EMediaPlayerActivator.getDefault().logException(e);
+			}
+		};
+	};
+
+	private Action playFileAction = new Action("Play") {
+		public void run() {
+			int index = playListViewer.getTable().getSelectionIndex();
+			mediaPlayer.playItem(index);
+		};
+	};
+
+	private Action addToPlaylistAction = new Action("Add") {
+		public void run() {
+			importFiles(false);
+		};
+	};
+
+	private Action clearPlayListAction = new Action("Clear") {
+		public void run() {
+			int count = playListViewer.getTable().getItemCount();
+			while (count > 0) {
+				mediaPlayer.removeItem(--count);
+			}
+		};
+	};
+
+	private Action removeFromPlaylistAction = new Action("Remove") {
+		public void run() {
+
+			int[] selectionIndices = playListViewer.getTable().getSelectionIndices();
+			int length = selectionIndices.length;
+			while (length > 0) {
+				mediaPlayer.removeItem(selectionIndices[0]);
+				length--;
+			}
+			if (selectionIndices.length > 0) {
+				int newIndex = selectionIndices[selectionIndices.length - 1] - 1;
+				if (newIndex == -1) {
+					newIndex++;
+				}
+				playListViewer.getTable().select(newIndex);
+			}
+
+		};
+	};
 
 	private void importFiles(boolean library) {
 		FileDialog dialog = new FileDialog(wmPlayerSite.getShell(), SWT.OPEN | SWT.MULTI);
@@ -595,9 +698,9 @@ public class EMediaView extends ViewPart {
 				if (library) {
 					try {
 						mediaLibrary.addToLocalRepository(new File(fileURL));
-					    refreshLibraryView();
+						refreshLibraryView();
 					} catch (Exception e) {
-						EMediaPlayerActivator.getDefault().logException(null, e);
+						EMediaPlayerActivator.getDefault().logException(e);
 					}
 				} else {
 					mediaPlayer.addToPlayList(fileURL, true);
@@ -605,7 +708,7 @@ public class EMediaView extends ViewPart {
 			}
 		}
 	}
-	
+
 	private void addPlayListViewer(Composite playListComposite) {
 		playListViewer = new TableViewer(playListComposite, SWT.FULL_SELECTION | SWT.MULTI | SWT.BORDER);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(playListViewer.getTable());
@@ -633,7 +736,7 @@ public class EMediaView extends ViewPart {
 			@Override
 			public void handleEvent(int eventKind) {
 				Display.getDefault().asyncExec(new Runnable() {
-					
+
 					@Override
 					public void run() {
 						playListViewer.refresh();
@@ -645,8 +748,7 @@ public class EMediaView extends ViewPart {
 		playListViewer.addDoubleClickListener(new IDoubleClickListener() {
 			@Override
 			public void doubleClick(DoubleClickEvent event) {
-				int index = playListViewer.getTable().getSelectionIndex();
-				mediaPlayer.playItem(index);
+				playFileAction.run();
 			}
 		});
 
@@ -734,7 +836,7 @@ public class EMediaView extends ViewPart {
 
 	@Override
 	public void dispose() {
-		mediaPlayer.savePlaylist();
+		savePlaylistAction.run();
 		super.dispose();
 	}
 

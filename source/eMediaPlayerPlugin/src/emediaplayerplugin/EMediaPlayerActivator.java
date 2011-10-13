@@ -49,6 +49,10 @@ public class EMediaPlayerActivator extends AbstractUIPlugin {
 		return plugin;
 	}
 	
+	public void logException(Exception e) {
+		logException(null, e);
+	}
+	
 	public void logException(String message, Exception e) {
 		message = message == null ? e.getMessage() : message;
 		getLog().log(new Status(IStatus.ERROR, PLUGIN_ID, message, e));

@@ -28,6 +28,7 @@ public class MediaLibrary {
 
 	public static final Image FOLDER = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FOLDER);
 	public static final Image FILE = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FILE);
+	public static final Image REMOTE_LOCAL_FOLDER = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/blue_folder.png").createImage();
 	public static final Image REMOTE_FOLDER = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/remote-folder.png").createImage();
 	public static final Image REMOTE_FILE = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/web.png").createImage();
 	private static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();
@@ -43,8 +44,11 @@ public class MediaLibrary {
 		SUPPORTED_FORMATS.add("wm");
 		SUPPORTED_FORMATS.add("wmv");
 		SUPPORTED_FORMATS.add("wvx");
+		SUPPORTED_FORMATS.add("jpeg");
+		SUPPORTED_FORMATS.add("jpg");
 	}
-	
+
+	private boolean isRemoteLocal;
 	private File local;
 	private File remote;
 	private Map<String, List<File>> localLib = new HashMap<String, List<File>>();
@@ -60,6 +64,7 @@ public class MediaLibrary {
 	}
 
 	public synchronized void setRemote(String remote) {
+		isRemoteLocal = !remote.startsWith("\\\\");
 		this.remote = new File(remote);
 	}
 
@@ -157,6 +162,11 @@ public class MediaLibrary {
 	
 	public synchronized File getLocalFile(File remoteFile) throws Exception {
 		if (!isLocalFile(remoteFile)) {
+			if (isRemoteLocal) {
+				// return same file if remote is a local folder
+				return remoteFile;
+			}
+			
 			addToLocalRepository(remoteFile);
 		}
 		List<File> songs = localLib.get(remoteFile.getParentFile().getName());
@@ -177,14 +187,17 @@ public class MediaLibrary {
 		return localLib.containsKey(folderName);
 	}
 
-	public synchronized boolean isRemoteFile(File file) {
-		List<File> files = remoteLib.get(file.getParentFile().getName());
-		if (files != null) {
-			for (File remoteFile : files) {
-				if (remoteFile.getName().equals(file.getName())) {
-					return true;
+	public synchronized boolean isRemoteShareRequired(File file) {
+		if (!isRemoteLocal) {
+			List<File> files = remoteLib.get(file.getParentFile().getName());
+			if (files != null) {
+				for (File remoteFile : files) {
+					if (remoteFile.getName().equals(file.getName())) {
+						return false;
+					}
 				}
 			}
+			return true;
 		}
 		return false;
 	}
@@ -197,7 +210,7 @@ public class MediaLibrary {
 	}
 
 	public synchronized void addToRemoteRepository(File local) throws Exception {
-		if (!isRemoteFile(local)) {
+		if (isRemoteShareRequired(local)) {
 			writeToRepository(remote, remoteLib, local);
 		}
 	}
@@ -238,6 +251,10 @@ public class MediaLibrary {
 	
 	public String getRemotePath() {
 		return remote.getAbsolutePath();
+	}
+	
+	public boolean isRemoteLocal() {
+		return isRemoteLocal;
 	}
 
 }
