@@ -37,6 +37,8 @@ import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.jface.viewers.ViewerSorter;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTError;
+import org.eclipse.swt.dnd.Clipboard;
+import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -611,6 +613,18 @@ public class EMediaView extends ViewPart {
 			manager.add(playFileAction);
 		}
 		manager.add(addToPlaylistAction);
+		
+		final String clipboardURL = getClipboardURL();
+		if (clipboardURL != null && (clipboardURL.startsWith("http://"))) {
+			manager.add(new Action("Play Clipboard URL") {
+				@Override
+				public void run() {
+                    mediaPlayer.addToPlayList(clipboardURL, true);
+                    mediaPlayer.playItem(playListViewer.getTable().getItemCount() -1);
+				}
+			});
+		}
+		
 		manager.add(new Separator());
 		if (!structuredSelection.isEmpty()) {
 			manager.add(removeFromPlaylistAction);
@@ -633,6 +647,19 @@ public class EMediaView extends ViewPart {
 				};
 			});
 		}
+	}
+	
+	private String getClipboardURL() {
+		Clipboard clipboard = new Clipboard(Display.getDefault());
+		try {
+			Object contents = clipboard.getContents(TextTransfer.getInstance());
+		    if (contents != null) {
+		    	return contents.toString();
+		    }
+		} finally {
+			clipboard.dispose();
+		}
+		return null;
 	}
 
 	private Action savePlaylistAction = new Action("Save Playlist") {
