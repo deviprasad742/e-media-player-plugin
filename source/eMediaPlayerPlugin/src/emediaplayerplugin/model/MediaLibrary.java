@@ -33,6 +33,10 @@ public class MediaLibrary {
 	public static final Image REMOTE_FILE = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/web.png").createImage();
 	private static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();
 
+	private static final String JPEG = "jpeg";
+	private static final String JPG = "jpg";
+
+	
 	static{
 		SUPPORTED_FORMATS.add("asf");
 		SUPPORTED_FORMATS.add("asx");
@@ -44,8 +48,8 @@ public class MediaLibrary {
 		SUPPORTED_FORMATS.add("wm");
 		SUPPORTED_FORMATS.add("wmv");
 		SUPPORTED_FORMATS.add("wvx");
-		SUPPORTED_FORMATS.add("jpeg");
-		SUPPORTED_FORMATS.add("jpg");
+		SUPPORTED_FORMATS.add(JPEG);
+		SUPPORTED_FORMATS.add("JPG");
 	}
 
 	private boolean isRemoteLocal;
@@ -255,6 +259,10 @@ public class MediaLibrary {
 	
 	public boolean isRemoteLocal() {
 		return isRemoteLocal;
+	}
+	
+	public boolean isPicture(String url) {
+		return url.endsWith(JPEG) || url.endsWith(JPG);
 	}
 
 }

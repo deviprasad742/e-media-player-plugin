@@ -359,22 +359,17 @@ public class EMediaView extends ViewPart {
 			protected IStatus run(IProgressMonitor monitor) {
 				for (File file : files) {
 					try {
+						if (mediaLibrary.isPicture(file.getAbsolutePath())) {
+							continue;
+						}
+						
 						final boolean isLocal = mediaLibrary.isLocalFile(file);
-						if (!isLocal) {
+						if (!isLocal && !mediaLibrary.isRemoteLocal()) {
 							monitor.beginTask("Downloading files from shared library", IProgressMonitor.UNKNOWN);
 						}
 
 						File localFile = mediaLibrary.getLocalFile(file);
-						mediaPlayer.addToPlayList(localFile.getAbsolutePath(), false);
-						Display.getDefault().syncExec(new Runnable() {
-							@Override
-							public void run() {
-								if (play) {
-									mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
-								}
-							}
-						});
-
+						mediaPlayer.addToPlayList(localFile.getAbsolutePath(), play);
 						if (!isLocal) {
 							refreshLibraryView();
 						}
@@ -730,7 +725,7 @@ public class EMediaView extends ViewPart {
 						EMediaPlayerActivator.getDefault().logException(e);
 					}
 				} else {
-					mediaPlayer.addToPlayList(fileURL, true);
+					mediaPlayer.addToPlayList(fileURL, mediaPlayer.getPlayList().size() == 0);
 				}
 			}
 		}
@@ -744,7 +739,7 @@ public class EMediaView extends ViewPart {
 
 		TableViewerColumn nameColumn = new TableViewerColumn(playListViewer, SWT.NONE);
 		nameColumn.getColumn().setText(NAME);
-		nameColumn.getColumn().setWidth(300);
+		nameColumn.getColumn().setWidth(150);
 
 		TableViewerColumn durationColumn = new TableViewerColumn(playListViewer, SWT.NONE);
 		durationColumn.getColumn().setText(DURATION);

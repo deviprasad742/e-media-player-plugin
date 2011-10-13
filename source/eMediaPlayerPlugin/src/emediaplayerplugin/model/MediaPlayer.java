@@ -10,6 +10,7 @@ import java.util.Properties;
 
 import org.eclipse.swt.ole.win32.OleAutomation;
 import org.eclipse.swt.ole.win32.Variant;
+import org.eclipse.swt.widgets.Display;
 
 import emediaplayerplugin.EMediaPlayerActivator;
 
@@ -81,9 +82,14 @@ public class MediaPlayer extends MediaModelObject {
 		Variant media = invoke(oPlayer, NEW_MEDIA, fileURL);
 		playList.add(new MediaFile(media));
 		invoke(oPlayList, ADD_TO_PLAYLIST, media);
-		Variant count = getSimpleProperty(oPlayList, PLAYLIST_COUNT);
-		if (play && count.getInt() == 1) {
-			getControl().play();
+		if (play) {
+			final int index = playList.size() -1;
+			Display.getDefault().asyncExec(new Runnable() {
+				@Override
+				public void run() {
+					playItem(index);
+				}
+			});
 		}
         notifyListener();
 	}
