@@ -1,6 +1,6 @@
 package emediaplayerplugin.model;
 
-public interface IMediaPlayerListener {
+public interface IListener {
     int EVENT_DEFAULT = 0; 	
 	void handleEvent(int eventKind); 
 	

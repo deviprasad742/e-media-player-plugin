@@ -43,4 +43,8 @@ public class MediaFile extends MediaModelObject {
 		return duration;
 	}
 	
+	public boolean isWebUrl(){
+		return MediaLibrary.isWebUrl(getUrl());
+	}
+	
 }

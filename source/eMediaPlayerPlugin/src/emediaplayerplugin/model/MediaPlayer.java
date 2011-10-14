@@ -35,7 +35,7 @@ public class MediaPlayer extends MediaModelObject {
 	public OleAutomation oPlayer;
 	private MediaControl control;
 	private List<MediaFile> playList = new ArrayList<MediaFile>();
-	private IMediaPlayerListener listener;
+	private IListener listener;
 	private OleAutomation oSettings;
 	private OleAutomation oPlayList;
 
@@ -108,7 +108,7 @@ public class MediaPlayer extends MediaModelObject {
 
 	private void notifyListener() {
 		if (listener != null) {
-			listener.handleEvent(IMediaPlayerListener.EVENT_DEFAULT);
+			listener.handleEvent(IListener.EVENT_DEFAULT);
 		}
 	}
 
@@ -120,7 +120,7 @@ public class MediaPlayer extends MediaModelObject {
 		return control;
 	}
 	
-	public void setListener(IMediaPlayerListener listener) {
+	public void setListener(IListener listener) {
 		this.listener = listener;
 	}
 	

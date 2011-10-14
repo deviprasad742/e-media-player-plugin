@@ -66,6 +66,7 @@ public class MediaLibrary {
 			lib.putAll(localLib);
 			musicMap.clear();
 		}
+		notifyListener();
 		return added;
 	}
 
@@ -112,6 +113,7 @@ public class MediaLibrary {
 			return false;
 		}
 	};
+	private IListener listener;
 
 	public synchronized Collection<String> getFolders() {
 		Set<String> folders = new HashSet<String>();
@@ -242,6 +244,7 @@ public class MediaLibrary {
 			remoteLib.put(key, filesMap);
 		}
 		filesMap.put(destination, destination.getName());
+		notifyListener();
 	}
 	
 	public String getLocalPath() {
@@ -293,6 +296,16 @@ public class MediaLibrary {
 	private boolean existsInLib(Map<String, Map<File, String>> lib, File file) {
 		String parent = file.getParentFile().getName();
 		return lib.get(parent) != null && lib.get(parent).containsValue(file.getName());
+	}
+	
+	public void setListener(IListener listener) {
+		this.listener = listener;
+	}
+	
+	private void notifyListener() {
+		if (listener != null) {
+			listener.handleEvent(IListener.EVENT_DEFAULT);
+		}
 	}
 
 	

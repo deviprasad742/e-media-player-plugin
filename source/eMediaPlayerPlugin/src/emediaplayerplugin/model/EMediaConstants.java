@@ -16,10 +16,10 @@ public class EMediaConstants {
 	private static final List<Image> createdImages = new ArrayList<Image>();
 	public static final Image IMAGE_FOLDER = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FOLDER);
 	public static final Image IMAGE_FILE = createImage("icons/file.jpg");
-	public static final Image IMAGE_SYNCED_FOLDER = createImage("icons/blue_folder.png");
-	public static final Image IMAGE_REMOTE_FOLDER = createImage("icons/remote-folder.png");
-	public static final Image IMAGE_REMOTE_FILE = createImage("icons/file_web.png");
-	public static final Image IMAGE_SYNCED_FILE = createImage("icons/file_blue.jpg");
+	public static final Image IMAGE_SYNCED_FOLDER = createImage("icons/folder_synced.png");
+	public static final Image IMAGE_REMOTE_FOLDER = createImage("icons/folder_remote.png");
+	public static final Image IMAGE_REMOTE_FILE = createImage("icons/file_remote.png");
+	public static final Image IMAGE_SYNCED_FILE = createImage("icons/file_synced.png");
 
 
 	public static final String EXT_JPEG = "jpeg";
