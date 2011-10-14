@@ -485,15 +485,7 @@ public class EMediaView extends ViewPart {
 
 		@Override
 		public Image getImage(Object element) {
-			if (element instanceof File) {
-				File file = (File) element;
-				return mediaLibrary.isRemoteLocal() || mediaLibrary.isLocalFile(file) ? MediaLibrary.FILE : MediaLibrary.REMOTE_FILE;
-			} else if (element instanceof String) {
-				String key = element.toString();
-				return mediaLibrary.isLocalFolder(key) ? MediaLibrary.FOLDER : (mediaLibrary.isRemoteLocal() ? MediaLibrary.REMOTE_LOCAL_FOLDER
-						: MediaLibrary.REMOTE_FOLDER);
-			}
-			return null;
+			return mediaLibrary.getElementType(element).getImage();
 		}
 	};
 
@@ -610,7 +602,7 @@ public class EMediaView extends ViewPart {
 		manager.add(addToPlaylistAction);
 		
 		final String clipboardURL = getClipboardURL();
-		if (clipboardURL != null && (clipboardURL.startsWith("http://"))) {
+		if (clipboardURL != null && (MediaLibrary.isWebUrl(clipboardURL))) {
 			manager.add(new Action("Play Clipboard URL") {
 				@Override
 				public void run() {
@@ -821,6 +813,15 @@ public class EMediaView extends ViewPart {
 
 		@Override
 		public Color getForeground(Object element) {
+			if (element instanceof MediaFile) {
+				String url = ((MediaFile) element).getUrl();
+				if (!MediaLibrary.isWebUrl(url)) {
+					File file = new File(url);
+					if (!file.exists()) {
+						return Display.getDefault().getSystemColor(SWT.COLOR_RED);
+					}
+				}
+			}
 			return null;
 		}
 

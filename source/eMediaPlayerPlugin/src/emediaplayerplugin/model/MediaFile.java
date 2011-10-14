@@ -37,7 +37,7 @@ public class MediaFile extends MediaModelObject {
 	}
 	
 	public String getDuration() {
-		if (url == null) {
+		if (duration == null) {
 			duration = getSimpleProperty(oMedia, DURATION).getString();
 		}
 		return duration;

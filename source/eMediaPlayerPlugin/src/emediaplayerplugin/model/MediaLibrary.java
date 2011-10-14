@@ -14,49 +14,18 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 
-import org.eclipse.jface.resource.ImageDescriptor;
-import org.eclipse.swt.graphics.Image;
-import org.eclipse.ui.ISharedImages;
-import org.eclipse.ui.PlatformUI;
-
-import emediaplayerplugin.EMediaPlayerActivator;
-
 public class MediaLibrary {
-
-	public static final Image FOLDER = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FOLDER);
-	public static final Image FILE = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FILE);
-	public static final Image REMOTE_LOCAL_FOLDER = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/blue_folder.png").createImage();
-	public static final Image REMOTE_FOLDER = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/remote-folder.png").createImage();
-	public static final Image REMOTE_FILE = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, "icons/web.png").createImage();
-	private static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();
-
-	private static final String JPEG = "jpeg";
-	private static final String JPG = "jpg";
-
-	
-	static{
-		SUPPORTED_FORMATS.add("asf");
-		SUPPORTED_FORMATS.add("asx");
-		SUPPORTED_FORMATS.add("avi");
-		SUPPORTED_FORMATS.add("mp3");
-		SUPPORTED_FORMATS.add("mp4");
-		SUPPORTED_FORMATS.add("mpeg");
-		SUPPORTED_FORMATS.add("wav");
-		SUPPORTED_FORMATS.add("wm");
-		SUPPORTED_FORMATS.add("wmv");
-		SUPPORTED_FORMATS.add("wvx");
-		SUPPORTED_FORMATS.add(JPEG);
-		SUPPORTED_FORMATS.add("JPG");
-	}
 
 	private boolean isRemoteLocal;
 	private File local;
 	private File remote;
-	private Map<String, List<File>> localLib = new HashMap<String, List<File>>();
-	private Map<String, List<File>> remoteLib = new HashMap<String, List<File>>();
+	private Map<String, Map<File, String>> localLib = new HashMap<String, Map<File, String>>();
+	private Map<String, Map<File, String>> remoteLib = new HashMap<String, Map<File, String>>();
+	private Map<String, List<File>> musicMap = new HashMap<String, List<File>>();
 
 	public MediaLibrary(String local, String remote) {
 		setLocal(local);
@@ -69,6 +38,7 @@ public class MediaLibrary {
 
 	public synchronized void setRemote(String remote) {
 		isRemoteLocal = !remote.startsWith("\\\\");
+		isRemoteLocal = false;
 		this.remote = new File(remote);
 	}
 
@@ -85,20 +55,21 @@ public class MediaLibrary {
 		return syncRepository(remoteLib, remote);
 	}
 
-	private List<String> syncRepository(Map<String, List<File>> lib, File root) {
+	private List<String> syncRepository(Map<String, Map<File, String>> lib, File root) {
 		List<String> added = new ArrayList<String>();
-		Map<String, List<File>> localLib = new HashMap<String, List<File>>();
+		Map<String, Map<File, String>> localLib = new HashMap<String, Map<File, String>>();
 		populateFiles(localLib, root);
 		synchronized (this) {
 			added.addAll(localLib.keySet());
 			added.removeAll(lib.keySet());
 			lib.clear();
 			lib.putAll(localLib);
+			musicMap.clear();
 		}
 		return added;
 	}
 
-	private void populateFiles(Map<String, List<File>> lib, File root) {
+	private void populateFiles(Map<String, Map<File, String>> localLib, File root) {
 		if(!root.exists()) {
 			return;
 		}
@@ -110,7 +81,14 @@ public class MediaLibrary {
 			files.addAll(Arrays.asList(folders));
 			File[] songs = current.listFiles(songsFilter);
 			if (songs.length > 0) {
-				lib.put(current.getName(), new ArrayList<File>(Arrays.asList(songs)));
+				Map<File, String> map = localLib.get(current.getName());
+				if (map == null) {
+					map = new HashMap<File, String>();
+					localLib.put(current.getName(), map);
+				}
+				for (File file : songs) {
+					map.put(file, file.getName());
+				}
 			}
 		}
 	}
@@ -129,7 +107,7 @@ public class MediaLibrary {
 			int indexOf = name.lastIndexOf(".");
 			if (indexOf != -1) {
 				String ext = name.substring(indexOf + 1);
-				return SUPPORTED_FORMATS.contains(ext.toLowerCase());
+				return EMediaConstants.SUPPORTED_FORMATS.contains(ext.toLowerCase());
 			}
 			return false;
 		}
@@ -143,20 +121,22 @@ public class MediaLibrary {
 	}
 
 	public synchronized Collection<File> getMusicFiles(String folderName) {
-	    Set<String> fileNames = new HashSet<String>();
-		List<File> songs = new ArrayList<File>();
-		List<File> localSongs = localLib.get(folderName);
-		if (localSongs != null) {
-			songs.addAll(localSongs);
-			for (File localFile : localSongs) {
-				fileNames.add(localFile.getName());
+		List<File> songs = musicMap.get(folderName);
+		if (songs == null) {
+			songs = new ArrayList<File>();
+			musicMap.put(folderName, songs);
+			Set<String> fileNames = new HashSet<String>();
+			Map<File, String> localSongs = localLib.get(folderName);
+			if (localSongs != null) {
+				songs.addAll(localSongs.keySet());
+				fileNames.addAll(localSongs.values());
 			}
-		}
-		List<File> remoteSongs = remoteLib.get(folderName);
-		if (remoteSongs != null) {
-			for (File remoteFile : remoteSongs) {
-				if (!fileNames.contains(remoteFile.getName())) {
-					songs.add(remoteFile);
+			Map<File, String> remoteSongs = remoteLib.get(folderName);
+			if (remoteSongs != null) {
+				for (Entry<File, String> entry : remoteSongs.entrySet()) {
+					if (!fileNames.contains(entry.getValue())) {
+						songs.add(entry.getKey());
+					}
 				}
 			}
 		}
@@ -173,18 +153,23 @@ public class MediaLibrary {
 			
 			addToLocalRepository(remoteFile);
 		}
-		List<File> songs = localLib.get(remoteFile.getParentFile().getName());
-		for (File file : songs) {
-			if (file.getName().equals(remoteFile.getName())) {
-				return file;
+		Map<File, String> songs = localLib.get(remoteFile.getParentFile().getName());
+		for (Entry<File, String> entry : songs.entrySet()) {
+			if (entry.getValue().equals(remoteFile.getName())) {
+				return entry.getKey();
 			}
 		}
 		throw new RuntimeException("Something went wrong");
 	}
 	
 	public synchronized boolean isLocalFile(File file) {
-		List<File> files = localLib.get(file.getParentFile().getName());
-		return files != null && files.contains(file);
+		Map<File, String> files = localLib.get(file.getParentFile().getName());
+		return files != null && files.containsKey(file);
+	}
+	
+	public synchronized boolean isRemoteFile(File file) {
+		Map<File, String> files = remoteLib.get(file.getParentFile().getName());
+		return files != null && files.containsKey(file);
 	}
 
 	public synchronized boolean isLocalFolder(String folderName) {
@@ -193,12 +178,10 @@ public class MediaLibrary {
 
 	public synchronized boolean isRemoteShareRequired(File file) {
 		if (!isRemoteLocal) {
-			List<File> files = remoteLib.get(file.getParentFile().getName());
+			Map<File, String> files = remoteLib.get(file.getParentFile().getName());
 			if (files != null) {
-				for (File remoteFile : files) {
-					if (remoteFile.getName().equals(file.getName())) {
-						return false;
-					}
+				if (files.containsValue(file.getName())) {
+					return false;
 				}
 			}
 			return true;
@@ -219,8 +202,21 @@ public class MediaLibrary {
 		}
 	}
 
-	private void writeToRepository(File root, Map<String, List<File>> lib, File file2Copy) throws Exception {
-		File destination = new File(root, file2Copy.getParentFile().getName() + File.separator + file2Copy.getName());
+	private void writeToRepository(File root, Map<String, Map<File, String>> remoteLib, File file2Copy) throws Exception {
+		String key = file2Copy.getParentFile().getName();
+		Map<File, String> filesMap = remoteLib.get(key);
+		String repoRelativeFolderPath = "#eMediaShared" + File.separator + key;		
+		if (filesMap != null) {
+			File firstFile = null;
+			for (Entry<File, String> entry : filesMap.entrySet()) {
+			    firstFile = entry.getKey();
+			    break;
+			}
+			String parentPath = firstFile.getParentFile().getAbsolutePath();
+			String rootPath = root.getAbsolutePath();
+			repoRelativeFolderPath = parentPath.substring(parentPath.indexOf(rootPath) + rootPath.length());
+		}
+        File destination = new File(root, repoRelativeFolderPath + File.separator + file2Copy.getName());
 		destination.getParentFile().mkdirs();
 		InputStream in = null;
 		OutputStream out = null;
@@ -235,18 +231,17 @@ public class MediaLibrary {
 		} finally {
 			if (in != null) {
 				in.close();
-			} else if (out != null) {
+			} 
+			if (out != null) {
 				out.close();
 			}
 		}
 
-		String key = destination.getParentFile().getName();
-		List<File> list = lib.get(key);
-		if (list == null) {
-			list = new ArrayList<File>();
-			lib.put(key, list);
+		if (filesMap == null) {
+			filesMap = new HashMap<File, String>();
+			remoteLib.put(key, filesMap);
 		}
-		list.add(destination);
+		filesMap.put(destination, destination.getName());
 	}
 	
 	public String getLocalPath() {
@@ -262,7 +257,44 @@ public class MediaLibrary {
 	}
 	
 	public boolean isPicture(String url) {
-		return url.endsWith(JPEG) || url.endsWith(JPG);
+		return url.endsWith(EMediaConstants.EXT_JPEG) || url.endsWith(EMediaConstants.EXT_JPG);
+	}
+	
+	public static boolean isWebUrl(String url) {
+		return url.startsWith("http://");
+	}
+	
+	
+	public ElementType getElementType(Object element) {
+		if (element instanceof File) {
+			File file = (File) element;
+			boolean isLocal = existsInLib(localLib, file);
+			boolean isRemote = existsInLib(remoteLib, file);
+			if (isRemote && isLocal) {
+				return ElementType.FILE_SYNCED;
+			} else if (isRemote) {
+				return ElementType.FILE_REMOTE;
+			} else {
+				return ElementType.FILE_NORMAL;
+			}
+		} else {
+			boolean isLocal = localLib.containsKey(element);
+			boolean isRemote = remoteLib.containsKey(element);
+			if (isRemote && isLocal) {
+				return ElementType.FOLDER_SYNCED;
+			} else if (isRemote) {
+				return ElementType.FOLDER_REMOTE;
+			} else {
+				return ElementType.FOLDER_NORMAL;
+			}
+		}
 	}
 
+	private boolean existsInLib(Map<String, Map<File, String>> lib, File file) {
+		String parent = file.getParentFile().getName();
+		return lib.get(parent) != null && lib.get(parent).containsValue(file.getName());
+	}
+
+	
+	
 }
