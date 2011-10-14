@@ -20,7 +20,7 @@ public class EMediaConstants {
 	public static final Image IMAGE_REMOTE_FOLDER = createImage("icons/folder_remote.png");
 	public static final Image IMAGE_REMOTE_FILE = createImage("icons/file_remote.png");
 	public static final Image IMAGE_SYNCED_FILE = createImage("icons/file_synced.png");
-
+	public static final Image IMAGE_MUSIC_FILE = createImage("icons/music_file.png");
 
 	public static final String EXT_JPEG = "jpeg";
 	public static final String EXT_JPG = "jpg";

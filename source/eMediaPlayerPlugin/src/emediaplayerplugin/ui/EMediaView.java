@@ -70,6 +70,7 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 
 import emediaplayerplugin.EMediaPlayerActivator;
+import emediaplayerplugin.model.EMediaConstants;
 import emediaplayerplugin.model.IListener;
 import emediaplayerplugin.model.MediaFile;
 import emediaplayerplugin.model.MediaLibrary;
@@ -110,10 +111,17 @@ public class EMediaView extends ViewPart {
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
 			monitor.beginTask("Refreshing library", IProgressMonitor.UNKNOWN);
+			Display.getDefault().syncExec(new Runnable() {
+				@Override
+				public void run() {
+					pathsButton.setEnabled(false);
+				}
+			});
 			mediaLibrary.syncAll();
 			Display.getDefault().asyncExec(new Runnable() {
 				@Override
 				public void run() {
+					pathsButton.setEnabled(true);
 					libraryViewer.setInput(mediaLibrary);
 				}
 			});
@@ -811,6 +819,9 @@ public class EMediaView extends ViewPart {
 
 		@Override
 		public Image getColumnImage(Object element, int columnIndex) {
+			if (columnIndex == 0) {
+				return EMediaConstants.IMAGE_MUSIC_FILE;
+			}
 			return null;
 		}
 

@@ -19,7 +19,7 @@ import emediaplayerplugin.EMediaPlayerActivator;
 
 public class LibraryPathsDialog extends Dialog {
 	private static final String DEFAULT_LOCAL_PATH = "C:\\EMediaMusic\\local";
-	private static final String DEFAULT_REMOTE_PATH = "\\\\10.10.19.192\\swdump\\Users\\Prasad\\Music";
+	private static final String DEFAULT_REMOTE_PATH = "C:\\EMediaMusic\\remote";
 
 	private static final String LOCAL_PATH = "emediaplayerplugin.ui.LibraryPathsDialog.localPath";
 	private static final String REMOTE_PATH = "emediaplayerplugin.ui.LibraryPathsDialog.remotePath";
