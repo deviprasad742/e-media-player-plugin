@@ -18,7 +18,7 @@ import emediaplayerplugin.EMediaPlayerActivator;
  * 
  * @author Prasad
  * 
- * Reference :http://msdn.microsoft.com/en-us/library/windows/desktop/dd564034(v=VS.85).aspx
+ * Reference: http://msdn.microsoft.com/en-us/library/windows/desktop/dd564034(v=VS.85).aspx
  *
  */
 
@@ -39,12 +39,10 @@ public class MediaPlayer extends MediaModelObject {
 	public static final String LOOP = "loop";
 	public static final String SHUFFLE = "shuffle";
 
-	
 	public static final String SETTINGS = "settings";
 	public static final String VOLUME = "volume";
 
-
-	private static final String PLAY_LIST_FILE = "C:\\Program Files\\EMediaPlayerPlugin\\playlist.japf";
+	private static final String PLAY_LIST_FILE_PATH = EMediaConstants.LOCAL_SETTINGS_PATH + "playlist.japf";
 
 	public OleAutomation oPlayer;
 	private MediaControl control;
@@ -70,7 +68,7 @@ public class MediaPlayer extends MediaModelObject {
 
 	private void loadPlaylistSettings() {
 		String playList = null;
-		File propertiesFile = new File(PLAY_LIST_FILE);
+		File propertiesFile = new File(PLAY_LIST_FILE_PATH);
 		if (propertiesFile.exists()) {
 			Properties properties = new Properties();
 			try {
@@ -150,7 +148,7 @@ public class MediaPlayer extends MediaModelObject {
 			builder.append(comma);
 		}
 		String playList = builder.length() > 0 ? builder.substring(0, builder.length() -1) : builder.toString();
-		File propertiesFile = new File(PLAY_LIST_FILE);
+		File propertiesFile = new File(PLAY_LIST_FILE_PATH);
 		propertiesFile.getParentFile().mkdirs();
 		Properties properties = new Properties();
 		properties.put(CURRENT_PLAYLIST, playList);

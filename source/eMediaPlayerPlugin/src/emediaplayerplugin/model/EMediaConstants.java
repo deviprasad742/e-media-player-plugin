@@ -22,6 +22,11 @@ public class EMediaConstants {
 	public static final Image IMAGE_SYNCED_FILE = createImage("icons/file_synced.png");
 	public static final Image IMAGE_MUSIC_FILE = createImage("icons/music_file.png");
 
+	public static final String EMEDIA_SHARED_FOLDER= "#eMediaShared";
+	public static final String FAV_MEMBER_LOCAL= "<Local>";
+	public static final String LOCAL_SETTINGS_PATH = "C:\\Program Files\\EMediaPlayerPlugin\\";
+	public static final String FAV_MEMBER_UNKNOWN= "<Unknown User>";
+
 	public static final String EXT_JPEG = "jpeg";
 	public static final String EXT_JPG = "jpg";
 

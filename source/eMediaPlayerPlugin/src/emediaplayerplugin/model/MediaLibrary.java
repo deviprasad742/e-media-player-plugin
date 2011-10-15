@@ -32,6 +32,7 @@ public class MediaLibrary {
 	private Map<String, Map<File, String>> localLib = new HashMap<String, Map<File, String>>();
 	private Map<String, Map<File, String>> remoteLib = new HashMap<String, Map<File, String>>();
 	private Map<String, List<File>> musicMap = new HashMap<String, List<File>>();
+	
 
 	public MediaLibrary(String local, String remote) {
 		setLocal(local);
@@ -163,13 +164,31 @@ public class MediaLibrary {
 			
 			addToLocalRepository(remoteFile);
 		}
-		Map<File, String> songs = localLib.get(remoteFile.getParentFile().getName());
+		File localFile = getLocalFile(remoteFile.getParentFile().getName(), remoteFile.getName());
+		if (localFile != null) {
+			return localFile;
+		}
+		throw new RuntimeException("Something went wrong");
+	}
+	
+	public synchronized File getLocalFile(String folder, String fileName) {
+		Map<File, String> songs = localLib.get(folder);
 		for (Entry<File, String> entry : songs.entrySet()) {
-			if (entry.getValue().equals(remoteFile.getName())) {
+			if (entry.getValue().equals(fileName)) {
 				return entry.getKey();
 			}
 		}
-		throw new RuntimeException("Something went wrong");
+		return null;
+	}
+	
+	public synchronized File getFile(String folder, String fileName) {
+		Collection<File> files = getMusicFiles(folder);
+		for (File file : files) {
+			if (file.getName().equals(fileName)) {
+				return file;
+			}
+		}
+		return null;
 	}
 	
 	public synchronized boolean isLocalFile(File file) {
@@ -215,7 +234,7 @@ public class MediaLibrary {
 	private void writeToRepository(File root, Map<String, Map<File, String>> lib, File file2Copy) throws Exception {
 		String key = file2Copy.getParentFile().getName();
 		Map<File, String> filesMap = lib.get(key);
-		String repoRelativeFolderPath = "#eMediaShared" + File.separator + key;		
+		String repoRelativeFolderPath = EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator + key;		
 		if (filesMap != null) {
 			File firstFile = null;
 			for (Entry<File, String> entry : filesMap.entrySet()) {

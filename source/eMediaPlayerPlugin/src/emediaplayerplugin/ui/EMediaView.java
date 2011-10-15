@@ -20,12 +20,14 @@ import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
+import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.CellLabelProvider;
 import org.eclipse.jface.viewers.ColumnViewerToolTipSupport;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.IColorProvider;
 import org.eclipse.jface.viewers.IDoubleClickListener;
+import org.eclipse.jface.viewers.IFontProvider;
 import org.eclipse.jface.viewers.ILabelProvider;
 import org.eclipse.jface.viewers.ILabelProviderListener;
 import org.eclipse.jface.viewers.IStructuredSelection;
@@ -49,6 +51,7 @@ import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.Font;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -76,6 +79,8 @@ import org.eclipse.ui.part.ViewPart;
 
 import emediaplayerplugin.EMediaPlayerActivator;
 import emediaplayerplugin.model.EMediaConstants;
+import emediaplayerplugin.model.FavMedia;
+import emediaplayerplugin.model.FavouritesRepository;
 import emediaplayerplugin.model.IListener;
 import emediaplayerplugin.model.MediaFile;
 import emediaplayerplugin.model.MediaLibrary;
@@ -131,6 +136,11 @@ public class EMediaView extends ViewPart {
 				}
 			});
 			mediaLibrary.syncAll();
+			try {
+				favouritesRepository.syncRepositories();
+			} catch (Exception e) {
+				EMediaPlayerActivator.getDefault().logException(e);
+			}
 			Display.getDefault().asyncExec(new Runnable() {
 				@Override
 				public void run() {
@@ -138,12 +148,14 @@ public class EMediaView extends ViewPart {
 					libraryViewer.setInput(mediaLibrary);
 				}
 			});
-			
+
 			return Status.OK_STATUS;
 		}
 
 	};
-	
+
+	private FavouritesRepository favouritesRepository;
+
 	private void setLibraryButtonsEnabled(boolean enable) {
 		syncAllButton.setEnabled(enable);
 		pathsButton.setEnabled(enable);
@@ -172,6 +184,16 @@ public class EMediaView extends ViewPart {
 				refreshLibraryView();
 			}
 		});
+
+		// TODO:
+		favouritesRepository = new FavouritesRepository(mediaLibrary.getRemotePath(), mediaLibrary);
+		favouritesRepository.setListener(new IListener() {
+			@Override
+			public void handleEvent(int eventKind) {
+				refreshLibraryView();
+			}
+		});
+
 		Composite libraryComposite = new Composite(container, SWT.NONE);
 		libraryTab.setControl(libraryComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryComposite);
@@ -299,16 +321,56 @@ public class EMediaView extends ViewPart {
 			}
 		});
 		manager.add(new Separator());
-		
-		
-		
+
+		final List<File> favFiles2Add = new ArrayList<File>();
+		final List<File> favFiles2Remove = new ArrayList<File>();
+		for (File file : selectedFiles) {
+			if (favouritesRepository.isLocalFavMedia(file.getAbsolutePath())) {
+				favFiles2Remove.add(file);
+			} else {
+				favFiles2Add.add(file);
+			}
+		}
+
+		if (!favFiles2Add.isEmpty()) {
+			manager.add(new Action("Add To Favourites") {
+				@Override
+				public void run() {
+					for (File file : favFiles2Add) {
+						try {
+							favouritesRepository.addToFavourites(file);
+						} catch (Exception e) {
+							EMediaPlayerActivator.getDefault().logException(e);
+						}
+					}
+				}
+			});
+		}
+
+		if (!favFiles2Remove.isEmpty()) {
+			manager.add(new Action("Remove From Favourites") {
+				@Override
+				public void run() {
+					for (File file : favFiles2Remove) {
+						try {
+							favouritesRepository.removeFromFavourites(file);
+						} catch (Exception e) {
+							EMediaPlayerActivator.getDefault().logException(e);
+						}
+					}
+				}
+			});
+		}
+
+		manager.add(new Separator());
+
 		final List<File> files2Download = new ArrayList<File>();
 		for (File file : selectedFiles) {
 			if (!mediaLibrary.isLocalFile(file)) {
 				files2Download.add(file);
 			}
 		}
-		
+
 		if (!files2Download.isEmpty()) {
 			manager.add(new Action("Download") {
 				@Override
@@ -524,7 +586,7 @@ public class EMediaView extends ViewPart {
 		}
 	};
 
-	private class LibraryLabelProvider extends CellLabelProvider implements ILabelProvider {
+	private class LibraryLabelProvider extends CellLabelProvider implements ILabelProvider, IFontProvider, IColorProvider {
 		@Override
 		public void removeListener(ILabelProviderListener listener) {
 
@@ -548,7 +610,12 @@ public class EMediaView extends ViewPart {
 		@Override
 		public String getText(Object element) {
 			if (element instanceof File) {
-				return ((File) element).getName();
+				FavMedia favMedia = favouritesRepository.getFavMedia(((File) element).getAbsolutePath());
+			    String tail = "";
+			    if (favMedia != null && favMedia.isValid()) {
+			    	tail = " (+" + favMedia.getMembers().size() + ")";
+			    }
+				return ((File) element).getName() + tail;
 			}
 			return element.toString();
 		}
@@ -564,6 +631,9 @@ public class EMediaView extends ViewPart {
 			cell.setText(getText(element));
 			Image image = getImage(element);
 			cell.setImage(image);
+			cell.setBackground(getBackground(element));
+			cell.setForeground(getForeground(element));
+			cell.setFont(getFont(element));
 		}
 
 		@Override
@@ -585,7 +655,33 @@ public class EMediaView extends ViewPart {
 			}
 		}
 
+		@Override
+		public Color getForeground(Object element) {
+			if (element instanceof File) {
+				if (favouritesRepository.isFavMedia(((File) element).getAbsolutePath())) {
+					return Display.getDefault().getSystemColor(SWT.COLOR_DARK_GREEN);
+				}
+			}
+			return null;
+		}
+
+		@Override
+		public Color getBackground(Object element) {
+			return null;
+		}
+
+		@Override
+		public Font getFont(Object element) {
+			if (element instanceof File) {
+				if (favouritesRepository.isLocalFavMedia(((File) element).getAbsolutePath())) {
+					return JFaceResources.getFontRegistry().getBold(JFaceResources.DEFAULT_FONT);
+				}
+			}
+			return null;
+		}
+
 	};
+	
 
 	private void addDisposeListeners() {
 		getSite().getWorkbenchWindow().getWorkbench().addWorkbenchListener(new IWorkbenchListener() {
@@ -594,6 +690,7 @@ public class EMediaView extends ViewPart {
 			public boolean preShutdown(IWorkbench workbench, boolean forced) {
 				try {
 					mediaPlayer.savePlaylist();
+					favouritesRepository.saveAllFavourites();
 					mediaPlayer.dispose();
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -719,13 +816,13 @@ public class EMediaView extends ViewPart {
 			manager.add(clearPlayListAction);
 		}
 		manager.add(new Separator());
-		
+
 		repeatAction.setChecked(mediaPlayer.isRepeat());
 		manager.add(repeatAction);
 		shuffleAction.setChecked(mediaPlayer.isShuffle());
 		manager.add(shuffleAction);
 		manager.add(new Separator());
-		
+
 		final List<File> files2Share = new ArrayList<File>();
 		for (Object object : structuredSelection.toList()) {
 			MediaFile mediaFile = (MediaFile) object;
