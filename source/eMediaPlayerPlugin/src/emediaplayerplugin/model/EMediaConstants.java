@@ -39,8 +39,6 @@ public class EMediaConstants {
 		SUPPORTED_FORMATS.add("wm");
 		SUPPORTED_FORMATS.add("wmv");
 		SUPPORTED_FORMATS.add("wvx");
-		SUPPORTED_FORMATS.add(EMediaConstants.EXT_JPEG);
-		SUPPORTED_FORMATS.add(EMediaConstants.EXT_JPG);
 		
 		Display.getDefault().asyncExec(new Runnable() {
 

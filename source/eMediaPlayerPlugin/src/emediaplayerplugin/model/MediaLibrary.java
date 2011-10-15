@@ -18,6 +18,12 @@ import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 
+/**
+ * 
+ * @author Prasad
+ *
+ */
+
 public class MediaLibrary {
 
 	private boolean isRemoteLocal;
@@ -88,7 +94,9 @@ public class MediaLibrary {
 					localLib.put(current.getName(), map);
 				}
 				for (File file : songs) {
-					map.put(file, file.getName());
+					if (!map.containsValue(file.getName())) {
+						map.put(file, file.getName());
+					}
 				}
 			}
 		}
@@ -204,9 +212,9 @@ public class MediaLibrary {
 		}
 	}
 
-	private void writeToRepository(File root, Map<String, Map<File, String>> remoteLib, File file2Copy) throws Exception {
+	private void writeToRepository(File root, Map<String, Map<File, String>> lib, File file2Copy) throws Exception {
 		String key = file2Copy.getParentFile().getName();
-		Map<File, String> filesMap = remoteLib.get(key);
+		Map<File, String> filesMap = lib.get(key);
 		String repoRelativeFolderPath = "#eMediaShared" + File.separator + key;		
 		if (filesMap != null) {
 			File firstFile = null;
@@ -241,9 +249,10 @@ public class MediaLibrary {
 
 		if (filesMap == null) {
 			filesMap = new HashMap<File, String>();
-			remoteLib.put(key, filesMap);
+			lib.put(key, filesMap);
 		}
 		filesMap.put(destination, destination.getName());
+		musicMap.remove(destination.getParentFile().getName());
 		notifyListener();
 	}
 	
@@ -308,6 +317,25 @@ public class MediaLibrary {
 		}
 	}
 
+	public void removeLocalFiles(List<File> files) {
+		for (File file : files) {
+			if (isLocalFile(file)) {
+				File parent = file.getParentFile();
+				boolean success = file.delete();
+				if (success) {
+					String[] list = parent.list();
+					if (list.length == 0) {
+						parent.delete();
+						localLib.remove(parent.getName());
+					} else {
+						localLib.get(parent.getName()).remove(file);
+					}
+					musicMap.remove(parent.getName());
+				}
+			}
+		}
+		notifyListener();
+	}
 	
 	
 }

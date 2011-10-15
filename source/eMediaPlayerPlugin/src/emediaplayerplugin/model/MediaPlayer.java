@@ -14,6 +14,14 @@ import org.eclipse.swt.widgets.Display;
 
 import emediaplayerplugin.EMediaPlayerActivator;
 
+/**
+ * 
+ * @author Prasad
+ * 
+ * Reference :http://msdn.microsoft.com/en-us/library/windows/desktop/dd564034(v=VS.85).aspx
+ *
+ */
+
 public class MediaPlayer extends MediaModelObject {
 
 	public static final String CURRENT_PLAYLIST = "currentPlaylist";
@@ -25,6 +33,12 @@ public class MediaPlayer extends MediaModelObject {
 	public static final String ITEM = "item";
 	public static final String URL = "URL";
 	public static final String REMOVE_ITEM = "removeItem";
+
+	private static final String GET_MODE = "getMode";
+	private static final String SET_MODE = "setMode";
+	public static final String LOOP = "loop";
+	public static final String SHUFFLE = "shuffle";
+
 	
 	public static final String SETTINGS = "settings";
 	public static final String VOLUME = "volume";
@@ -44,15 +58,17 @@ public class MediaPlayer extends MediaModelObject {
 		init();
 	}
 
+	/**
+	 * 
+	 */
 	private void init() {
 		oSettings = getProperty(oPlayer, SETTINGS);
 		setProperty(oSettings, VOLUME, new Variant((long)100));
-		setRepeat(true);
 		oPlayList = getProperty(oPlayer, CURRENT_PLAYLIST);
-		loadPlaylist();
+		loadPlaylistSettings();
 	}
 
-	private void loadPlaylist() {
+	private void loadPlaylistSettings() {
 		String playList = null;
 		File propertiesFile = new File(PLAY_LIST_FILE);
 		if (propertiesFile.exists()) {
@@ -60,6 +76,8 @@ public class MediaPlayer extends MediaModelObject {
 			try {
 				properties.load(new FileReader(propertiesFile));
 				playList = properties.getProperty(CURRENT_PLAYLIST);
+				setRepeat(Boolean.valueOf(properties.getProperty(LOOP)));
+				setShuffle(Boolean.valueOf(properties.getProperty(SHUFFLE)));
 			} catch (Exception e) {
 				EMediaPlayerActivator.getDefault().logException(e);
 			}
@@ -136,6 +154,8 @@ public class MediaPlayer extends MediaModelObject {
 		propertiesFile.getParentFile().mkdirs();
 		Properties properties = new Properties();
 		properties.put(CURRENT_PLAYLIST, playList);
+		properties.put(LOOP,  "" + isRepeat());
+		properties.put(SHUFFLE, "" + isShuffle());
 		properties.store(new FileWriter(propertiesFile), null);
 	}
 	
@@ -157,7 +177,19 @@ public class MediaPlayer extends MediaModelObject {
 	}
 	
 	public void setRepeat(boolean repeat) {
-		oSettings.invoke(property(oSettings, "setMode"), new Variant[] { new Variant("loop"), new Variant(true)});
+		oSettings.invoke(property(oSettings, SET_MODE), new Variant[] { new Variant(LOOP), new Variant(repeat)});
+	}
+	
+	public boolean isRepeat() {
+		return oSettings.invoke(property(oSettings, GET_MODE), new Variant[] { new Variant(LOOP)}).getBoolean();
 	}
  
+	public void setShuffle(boolean shuffle) {
+		oSettings.invoke(property(oSettings, SET_MODE), new Variant[] { new Variant(SHUFFLE), new Variant(shuffle)});
+	}
+	
+	public boolean isShuffle() {
+		return oSettings.invoke(property(oSettings, GET_MODE), new Variant[] { new Variant(SHUFFLE)}).getBoolean();
+	}
+	
 }
