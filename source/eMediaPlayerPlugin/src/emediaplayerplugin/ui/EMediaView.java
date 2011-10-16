@@ -211,7 +211,21 @@ public class EMediaView extends ViewPart {
 		
 		favouritesViewer.setContentProvider(new ArrayContentProvider());
 		favouritesViewer.setLabelProvider(new FavouritesLabelProvider());
-		favouritesViewer.setSorter(new ViewerSorter());
+		favouritesViewer.setSorter(new ViewerSorter() {
+			@Override
+			public int compare(Viewer viewer, Object e1, Object e2) {
+				if (e1 instanceof FavMedia && e2 instanceof FavMedia) {
+					FavMedia f1 = (FavMedia) e1;
+					FavMedia f2 = (FavMedia) e2;
+					int compare =  ("" + f2.getMembers().size()).compareTo("" + f1.getMembers().size());
+					if (compare == 0) {
+						return f1.getFile().getName().compareTo(f2.getFile().getName());
+					}
+					return compare;
+				}
+				return super.compare(viewer, e1, e2);
+			}
+		});
 		favouritesViewer.setFilters(new ViewerFilter[] { favouritesFilter });
 		hookLibAndFavContextMenu(false);
 
