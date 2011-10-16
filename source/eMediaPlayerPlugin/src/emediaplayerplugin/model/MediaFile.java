@@ -1,9 +1,12 @@
 package emediaplayerplugin.model;
 
+import java.io.File;
+
+import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.swt.ole.win32.OleAutomation;
 import org.eclipse.swt.ole.win32.Variant;
 
-public class MediaFile extends MediaModelObject {
+public class MediaFile extends MediaModelObject implements IAdaptable {
 	public static final String SOURCE_URL = "sourceURL";
 	public static final String DURATION = "durationString";
 	
@@ -45,6 +48,14 @@ public class MediaFile extends MediaModelObject {
 	
 	public boolean isWebUrl(){
 		return MediaLibrary.isWebUrl(getUrl());
+	}
+
+	@Override
+	public Object getAdapter(@SuppressWarnings("rawtypes") Class adapter) {
+		if (adapter.equals(File.class)) {
+			return new File(url);
+		}
+		return null;
 	}
 	
 }

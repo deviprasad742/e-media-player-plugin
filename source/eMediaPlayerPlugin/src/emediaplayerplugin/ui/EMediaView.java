@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
@@ -425,19 +426,12 @@ public class EMediaView extends ViewPart {
 		final IStructuredSelection structuredSelection = (IStructuredSelection) libraryViewer.getSelection();
 		final List<File> selectedFiles = getSelectedFiles(structuredSelection);
 		boolean singleSelection = structuredSelection.size() == 1;
-		manager.add(new Action("Play") {
-			@Override
-			public void run() {
-				downloadFiles(selectedFiles, true, true);
-			}
-		});
+		
+		EnqueSelectedFilesAction playFilesAction  = new EnqueSelectedFilesAction(selectedFiles, true);
+		EnqueSelectedFilesAction enequeFilesAction  = new EnqueSelectedFilesAction(selectedFiles, false);
+		manager.add(playFilesAction);
+		manager.add(enequeFilesAction);
 
-		manager.add(new Action("Eneque") {
-			@Override
-			public void run() {
-				downloadFiles(selectedFiles, true, false);
-			}
-		});
 		manager.add(new Separator());
 		
 		final List<File> files2Delete = new ArrayList<File>();
@@ -462,61 +456,29 @@ public class EMediaView extends ViewPart {
 			manager.add(new Separator());
 		}
 		
-		final List<File> files2Share = new ArrayList<File>();
-		for (File file : selectedFiles) {
-			if (mediaLibrary.isRemoteShareRequired(file)) {
-				files2Share.add(file);
-			}
-		}
-
-		
-		if (!files2Share.isEmpty()) {
-			manager.add(new Action("Share") {
-				@Override
-				public void run() {
-					shareFiles(files2Share);
-				}
-			});
+		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
+		DownloadFilesAction downloadFilesAction = new DownloadFilesAction(selectedFiles);
+		if (shareFilesAction.isEnabled()) {
+			manager.add(shareFilesAction);
 		}
 		
-		final List<File> files2Download = new ArrayList<File>();
-		for (File file : selectedFiles) {
-			if (!mediaLibrary.isLocalFile(file)) {
-				files2Download.add(file);
-			}
-		}
-
-		if (!files2Download.isEmpty()) {
-			manager.add(new Action("Download") {
-				@Override
-				public void run() {
-					downloadFiles(files2Download, false, false);
-				}
-			});
+		if (downloadFilesAction.isEnabled()) {
+			manager.add(downloadFilesAction);
 		}
 		
-		if (!files2Share.isEmpty() || !files2Download.isEmpty()) {
+		if (shareFilesAction.isEnabled() || downloadFilesAction.isEnabled()) {
 			manager.add(new Separator());
 		}
 		
-		final List<File> favFiles2Add = new ArrayList<File>();
-		final List<File> favFiles2Remove = new ArrayList<File>();
-		for (File file : selectedFiles) {
-			if (favouritesRepository.isLocalFavMedia(file.getAbsolutePath())) {
-				favFiles2Remove.add(file);
-			} else {
-				favFiles2Add.add(file);
-			}
+		
+		AddToFavAction addFavAction = new AddToFavAction(selectedFiles);
+		if (addFavAction.isEnabled()) {
+			manager.add(addFavAction);
 		}
-
-		if (!favFiles2Add.isEmpty()) {
-			manager.add(new AddToFavAction(favFiles2Add));
+		RemoveFromFavAction removeFavAction = new RemoveFromFavAction(selectedFiles);
+		if (removeFavAction.isEnabled()) {
+			manager.add(removeFavAction);
 		}
-
-		if (!favFiles2Remove.isEmpty()) {
-			manager.add(new RemoveFromFavAction(favFiles2Remove));
-		}
-
 		manager.add(new Separator());
 
 
@@ -537,14 +499,81 @@ public class EMediaView extends ViewPart {
 
 	}
 	
-	private class AddToFavAction extends Action {
-		private List<File> favFiles= new ArrayList<File>();
-		
-		public AddToFavAction(List<File> favFiles) {
-			super("Add To Favourites");
-			this.favFiles = favFiles;
+	private class ShareFilesAction extends Action {
+		private List<File> files2Share = new ArrayList<File>();
+
+		public ShareFilesAction(List<File> selectedFiles) {
+			super("Share");
+			for (File file : selectedFiles) {
+				if (mediaLibrary.isRemoteShareRequired(file)) {
+					files2Share.add(file);
+				}
+			}
+		}
+
+		public void run() {
+			shareFiles(files2Share);
 		}
 		
+		@Override
+		public boolean isEnabled() {
+			return !files2Share.isEmpty();
+		}
+	}
+	
+	private class DownloadFilesAction extends Action {
+		private List<File> files2Download = new ArrayList<File>();
+
+		public DownloadFilesAction(List<File> selectedFiles) {
+			super("Download");
+			for (File file : selectedFiles) {
+				if (!mediaLibrary.isLocalFile(file)) {
+					files2Download.add(file);
+				}
+			}
+		}
+
+		public void run() {
+			downloadFiles(files2Download, false, false);
+		}
+		
+		@Override
+		public boolean isEnabled() {
+			return !files2Download.isEmpty();
+		}
+	}
+	private class EnqueSelectedFilesAction extends Action {
+		private List<File> selectedFiles = new ArrayList<File>();
+        private boolean play;
+		
+		public EnqueSelectedFilesAction(List<File> selectedFiles, boolean play) {
+			super(play ? "Play" : "Enque");
+			this.selectedFiles = selectedFiles;
+			this.play = play;
+		}
+
+		public void run() {
+			downloadFiles(selectedFiles, true, play);
+		}
+		
+		@Override
+		public boolean isEnabled() {
+			return !selectedFiles.isEmpty();
+		}
+	}
+	
+	private class AddToFavAction extends Action {
+		private List<File> favFiles = new ArrayList<File>();
+
+		public AddToFavAction(List<File> selectedFiles) {
+			super("Add To Favourites");
+			for (File file : selectedFiles) {
+				if (!favouritesRepository.isFavMedia(file.getAbsolutePath())) {
+					favFiles.add(file);
+				}
+			}
+		}
+
 		public void run() {
 			int i = 0;
 			for (File file : favFiles) {
@@ -556,14 +585,23 @@ public class EMediaView extends ViewPart {
 				}
 			}
 		}
+		
+		@Override
+		public boolean isEnabled() {
+			return !favFiles.isEmpty();
+		}
 	}
 	
 	private class RemoveFromFavAction extends Action {
-		private List<File> favFiles= new ArrayList<File>();
+		private List<File> favFiles = new ArrayList<File>();
 		
-		public RemoveFromFavAction(List<File> favFiles) {
+		public RemoveFromFavAction(List<File> selectedFiles) {
 			super("Remove From Favourites");
-			this.favFiles = favFiles;
+			for (File file : selectedFiles) {
+				if (favouritesRepository.isFavMedia(file.getAbsolutePath())) {
+					favFiles.add(file);
+				}
+			}
 		}
 		
 		public void run() {
@@ -577,6 +615,11 @@ public class EMediaView extends ViewPart {
 				}
 			}
 		}
+		
+		@Override
+		public boolean isChecked() {
+			return !favFiles.isEmpty();
+		}
 	}
 
 	private List<File> getSelectedFiles(IStructuredSelection structuredSelection) {
@@ -584,8 +627,13 @@ public class EMediaView extends ViewPart {
 		for (Object object : structuredSelection.toList()) {
 			if (object instanceof File) {
 				files.add((File) object);
-			} else {
+			} else if (object instanceof String){
 				files.addAll(mediaLibrary.getMusicFiles(object.toString()));
+			} else if (object instanceof IAdaptable) {
+				File file = (File) ((IAdaptable) object).getAdapter(File.class);
+				if (file != null) {
+					files.add(file);
+				}
 			}
 		}
 		return files;
@@ -962,24 +1010,16 @@ public class EMediaView extends ViewPart {
 		}
 		manager.add(new Separator());
 		
-		final List<File> favFiles2Add = new ArrayList<File>();
-		final List<File> favFiles2Remove = new ArrayList<File>();
-		for (Object object : structuredSelection.toList()) {
-			MediaFile mediaFile = (MediaFile) object;
-			File file = new File(mediaFile.getUrl());
-			if (favouritesRepository.isLocalFavMedia(mediaFile.getUrl())) {
-				favFiles2Remove.add(file);
-			} else {
-				favFiles2Add.add(file);
-			}
+		final List<File> selectedFiles = getSelectedFiles(structuredSelection);
+		
+		AddToFavAction addFavAction = new AddToFavAction(selectedFiles);
+		if (addFavAction.isEnabled()) {
+			manager.add(addFavAction);
 		}
 
-		if (!favFiles2Add.isEmpty()) {
-			manager.add(new AddToFavAction(favFiles2Add));
-		}
-
-		if (!favFiles2Remove.isEmpty()) {
-			manager.add(new RemoveFromFavAction(favFiles2Remove));
+		RemoveFromFavAction removeFavAction = new RemoveFromFavAction(selectedFiles);
+		if (removeFavAction.isEnabled()) {
+			manager.add(removeFavAction);
 		}
 		manager.add(new Separator());
 
@@ -990,25 +1030,12 @@ public class EMediaView extends ViewPart {
 		manager.add(shuffleAction);
 		manager.add(new Separator());
 
-		final List<File> files2Share = new ArrayList<File>();
-		for (Object object : structuredSelection.toList()) {
-			MediaFile mediaFile = (MediaFile) object;
-			String url = mediaFile.getUrl();
-			File file = new File(url);
-			if (!mediaFile.isWebUrl() && mediaLibrary.isRemoteShareRequired(file)) {
-				files2Share.add(file);
-			}
+		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
+		if (shareFilesAction.isEnabled()) {
+			manager.add(shareFilesAction);
+			manager.add(new Separator());
 		}
-
-		if (!files2Share.isEmpty()) {
-			manager.add(new Action("Share") {
-				@Override
-				public void run() {
-					shareFiles(files2Share);
-				}
-			});
-		}
-		manager.add(new Separator());
+		
 
 		if (structuredSelection.size() == 1 && !((MediaFile) structuredSelection.getFirstElement()).isWebUrl()) {
 			manager.add(new Action("Open Location") {

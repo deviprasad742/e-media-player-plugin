@@ -241,9 +241,11 @@ public class MediaLibrary {
 			    firstFile = entry.getKey();
 			    break;
 			}
-			String parentPath = firstFile.getParentFile().getAbsolutePath();
-			String rootPath = root.getAbsolutePath();
-			repoRelativeFolderPath = parentPath.substring(parentPath.indexOf(rootPath) + rootPath.length());
+			if (firstFile != null) {
+				String parentPath = firstFile.getParentFile().getAbsolutePath();
+				String rootPath = root.getAbsolutePath();
+				repoRelativeFolderPath = parentPath.substring(parentPath.indexOf(rootPath) + rootPath.length());
+			}
 		}
         File destination = new File(root, repoRelativeFolderPath + File.separator + file2Copy.getName());
 		destination.getParentFile().mkdirs();

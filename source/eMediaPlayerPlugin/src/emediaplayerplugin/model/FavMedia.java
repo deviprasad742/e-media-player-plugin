@@ -5,7 +5,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-public class FavMedia {
+import org.eclipse.core.runtime.IAdaptable;
+
+public class FavMedia implements IAdaptable {
 	private String key;
 	private File file;
 	private Set<String> members = new HashSet<String>();
@@ -45,6 +47,14 @@ public class FavMedia {
 	
 	public static String getKey(File file) {
 		return file.getParentFile().getName() + File.separator + file.getName();
+	}
+	
+	@Override
+	public Object getAdapter(@SuppressWarnings("rawtypes") Class adapter) {
+		if (adapter.equals(File.class)) {
+			return file;
+		}
+		return null;
 	}
 
 }
