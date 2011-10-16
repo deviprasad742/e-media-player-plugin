@@ -21,6 +21,7 @@ public class EMediaConstants {
 	public static final Image IMAGE_REMOTE_FILE = createImage("icons/file_remote.png");
 	public static final Image IMAGE_SYNCED_FILE = createImage("icons/file_synced.png");
 	public static final Image IMAGE_MUSIC_FILE = createImage("icons/music_file.png");
+	public static final Image FAV_MUSIC_FILE = createImage("icons/fav.png");
 
 	public static final String EMEDIA_SHARED_FOLDER= "#eMediaShared";
 	public static final String FAV_MEMBER_LOCAL= "<Local>";

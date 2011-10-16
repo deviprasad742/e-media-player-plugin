@@ -191,6 +191,13 @@ public class EMediaView extends ViewPart {
 			@Override
 			public void handleEvent(int eventKind) {
 				refreshLibraryView();
+				Display.getDefault().asyncExec(new Runnable() {
+					
+					@Override
+					public void run() {
+						playListViewer.refresh();
+					}
+				});
 			}
 		});
 
@@ -321,66 +328,7 @@ public class EMediaView extends ViewPart {
 			}
 		});
 		manager.add(new Separator());
-
-		final List<File> favFiles2Add = new ArrayList<File>();
-		final List<File> favFiles2Remove = new ArrayList<File>();
-		for (File file : selectedFiles) {
-			if (favouritesRepository.isLocalFavMedia(file.getAbsolutePath())) {
-				favFiles2Remove.add(file);
-			} else {
-				favFiles2Add.add(file);
-			}
-		}
-
-		if (!favFiles2Add.isEmpty()) {
-			manager.add(new Action("Add To Favourites") {
-				@Override
-				public void run() {
-					for (File file : favFiles2Add) {
-						try {
-							favouritesRepository.addToFavourites(file);
-						} catch (Exception e) {
-							EMediaPlayerActivator.getDefault().logException(e);
-						}
-					}
-				}
-			});
-		}
-
-		if (!favFiles2Remove.isEmpty()) {
-			manager.add(new Action("Remove From Favourites") {
-				@Override
-				public void run() {
-					for (File file : favFiles2Remove) {
-						try {
-							favouritesRepository.removeFromFavourites(file);
-						} catch (Exception e) {
-							EMediaPlayerActivator.getDefault().logException(e);
-						}
-					}
-				}
-			});
-		}
-
-		manager.add(new Separator());
-
-		final List<File> files2Download = new ArrayList<File>();
-		for (File file : selectedFiles) {
-			if (!mediaLibrary.isLocalFile(file)) {
-				files2Download.add(file);
-			}
-		}
-
-		if (!files2Download.isEmpty()) {
-			manager.add(new Action("Download") {
-				@Override
-				public void run() {
-					downloadFiles(files2Download, false, false);
-				}
-			});
-			manager.add(new Separator());
-		}
-
+		
 		final List<File> files2Delete = new ArrayList<File>();
 		for (File file : selectedFiles) {
 			if (mediaLibrary.isLocalFile(file)) {
@@ -401,6 +349,7 @@ public class EMediaView extends ViewPart {
 			});
 			manager.add(new Separator());
 		}
+		
 		final List<File> files2Share = new ArrayList<File>();
 		for (File file : selectedFiles) {
 			if (mediaLibrary.isRemoteShareRequired(file)) {
@@ -408,6 +357,7 @@ public class EMediaView extends ViewPart {
 			}
 		}
 
+		
 		if (!files2Share.isEmpty()) {
 			manager.add(new Action("Share") {
 				@Override
@@ -415,8 +365,48 @@ public class EMediaView extends ViewPart {
 					shareFiles(files2Share);
 				}
 			});
+		}
+		
+		final List<File> files2Download = new ArrayList<File>();
+		for (File file : selectedFiles) {
+			if (!mediaLibrary.isLocalFile(file)) {
+				files2Download.add(file);
+			}
+		}
+
+		if (!files2Download.isEmpty()) {
+			manager.add(new Action("Download") {
+				@Override
+				public void run() {
+					downloadFiles(files2Download, false, false);
+				}
+			});
+		}
+		
+		if (!files2Share.isEmpty() || !files2Download.isEmpty()) {
 			manager.add(new Separator());
 		}
+		
+		final List<File> favFiles2Add = new ArrayList<File>();
+		final List<File> favFiles2Remove = new ArrayList<File>();
+		for (File file : selectedFiles) {
+			if (favouritesRepository.isLocalFavMedia(file.getAbsolutePath())) {
+				favFiles2Remove.add(file);
+			} else {
+				favFiles2Add.add(file);
+			}
+		}
+
+		if (!favFiles2Add.isEmpty()) {
+			manager.add(new AddToFavAction(favFiles2Add));
+		}
+
+		if (!favFiles2Remove.isEmpty()) {
+			manager.add(new RemoveFromFavAction(favFiles2Remove));
+		}
+
+		manager.add(new Separator());
+
 
 		if (singleSelection) {
 			manager.add(new Action("Open Location") {
@@ -433,6 +423,48 @@ public class EMediaView extends ViewPart {
 			manager.add(new Separator());
 		}
 
+	}
+	
+	private class AddToFavAction extends Action {
+		private List<File> favFiles= new ArrayList<File>();
+		
+		public AddToFavAction(List<File> favFiles) {
+			super("Add To Favourites");
+			this.favFiles = favFiles;
+		}
+		
+		public void run() {
+			int i = 0;
+			for (File file : favFiles) {
+				i++;
+				try {
+					favouritesRepository.addToFavourites(file, i == favFiles.size());
+				} catch (Exception e) {
+					EMediaPlayerActivator.getDefault().logException(e);
+				}
+			}
+		}
+	}
+	
+	private class RemoveFromFavAction extends Action {
+		private List<File> favFiles= new ArrayList<File>();
+		
+		public RemoveFromFavAction(List<File> favFiles) {
+			super("Remove From Favourites");
+			this.favFiles = favFiles;
+		}
+		
+		public void run() {
+			int i = 0;
+			for (File file : favFiles) {
+				i++;
+				try {
+					favouritesRepository.removeFromFavourites(file, i == favFiles.size());
+				} catch (Exception e) {
+					EMediaPlayerActivator.getDefault().logException(e);
+				}
+			}
+		}
 	}
 
 	private List<File> getSelectedFiles(IStructuredSelection structuredSelection) {
@@ -808,6 +840,7 @@ public class EMediaView extends ViewPart {
 		}
 
 		manager.add(new Separator());
+		
 		if (!structuredSelection.isEmpty()) {
 			manager.add(removeFromPlaylistAction);
 		}
@@ -816,6 +849,28 @@ public class EMediaView extends ViewPart {
 			manager.add(clearPlayListAction);
 		}
 		manager.add(new Separator());
+		
+		final List<File> favFiles2Add = new ArrayList<File>();
+		final List<File> favFiles2Remove = new ArrayList<File>();
+		for (Object object : structuredSelection.toList()) {
+			MediaFile mediaFile = (MediaFile) object;
+			File file = new File(mediaFile.getUrl());
+			if (favouritesRepository.isLocalFavMedia(mediaFile.getUrl())) {
+				favFiles2Remove.add(file);
+			} else {
+				favFiles2Add.add(file);
+			}
+		}
+
+		if (!favFiles2Add.isEmpty()) {
+			manager.add(new AddToFavAction(favFiles2Add));
+		}
+
+		if (!favFiles2Remove.isEmpty()) {
+			manager.add(new RemoveFromFavAction(favFiles2Remove));
+		}
+		manager.add(new Separator());
+
 
 		repeatAction.setChecked(mediaPlayer.isRepeat());
 		manager.add(repeatAction);
@@ -1038,6 +1093,10 @@ public class EMediaView extends ViewPart {
 		@Override
 		public Image getColumnImage(Object element, int columnIndex) {
 			if (columnIndex == 0) {
+				MediaFile mediaFile = (MediaFile) element;
+                if (favouritesRepository != null && favouritesRepository.isFavMedia(mediaFile.getUrl())) {
+                	return EMediaConstants.FAV_MUSIC_FILE;
+                }
 				return EMediaConstants.IMAGE_MUSIC_FILE;
 			}
 			return null;

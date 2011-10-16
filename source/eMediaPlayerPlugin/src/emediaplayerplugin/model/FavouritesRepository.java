@@ -114,7 +114,7 @@ public class FavouritesRepository {
 		notifyListener();
 	}
 
-	public synchronized void addToFavourites(File file) throws Exception {
+	public synchronized void addToFavourites(File file, boolean update) throws Exception {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		if (favMedia == null) {
@@ -122,16 +122,20 @@ public class FavouritesRepository {
 			favMediaMap.put(key, favMedia);
 		}
 		favMedia.getMembers().add(EMediaConstants.FAV_MEMBER_LOCAL);
-		saveLocalFavourites();
-		notifyListener();
+		if (update) {
+			saveLocalFavourites();
+			notifyListener();
+		}
 	}
 
-	public synchronized void removeFromFavourites(File file) throws Exception {
+	public synchronized void removeFromFavourites(File file, boolean update) throws Exception {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		favMedia.getMembers().remove(EMediaConstants.FAV_MEMBER_LOCAL);
-		saveLocalFavourites();
-		notifyListener();
+		if (update) {
+			saveLocalFavourites();
+			notifyListener();
+		}
 	}
 
 	public List<FavMedia> getFavMedias() {
@@ -230,7 +234,11 @@ public class FavouritesRepository {
 						object = builder.substring(0, builder.length() - MAC_SEPARATOR.length()); //remove last separator
 					}
 				}
-				properties.put(key, object);
+				if (object == null) {
+					properties.remove(key);
+				} else {
+					properties.put(key, object);
+				}
 			}
 			properties.store(new FileWriter(remoteFile), null);
 			
