@@ -100,13 +100,18 @@ public class EMediaView extends ViewPart {
 	private OleControlSite wmPlayerSite;
 	private MediaPlayer mediaPlayer;
 	private TableViewer playListViewer;
+	private TableViewer favouritesViewer;
+
 	private TreeViewer libraryViewer;
 	private Text musicLibraryFilterText;
 
 	private MediaLibrary mediaLibrary;
+
+	private Text favFilterText;
 	public static final String NAME = "Name";
 	public static final String DURATION = "Duration";
 	public static final String ALBUM = "Album";
+	public static final String HITS = "Hits";
 	public static final String URL = "Location";
 	public static final int FOLDER_LIMIT = 300;
 
@@ -122,9 +127,115 @@ public class EMediaView extends ViewPart {
 		createPlayerSection();
 		createPlayListSection();
 		createLibrarySection();
+		createFavouritesSection();
 		addDisposeListeners();
 	}
 
+	private void createFavouritesSection() {
+		TabItem favTab = new TabItem(container, SWT.NONE);
+		favTab.setText("Favourites");
+		
+		Composite favComposite = new Composite(container, SWT.NONE);
+		favTab.setControl(favComposite);
+		GridDataFactory.fillDefaults().grab(true, true).applyTo(favComposite);
+		GridLayoutFactory.fillDefaults().numColumns(1).applyTo(favComposite);
+
+		Composite filterComposite = new Composite(favComposite, SWT.NONE);
+		GridDataFactory.fillDefaults().grab(true, false).applyTo(filterComposite);
+		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(filterComposite);
+
+		Label label = new Label(filterComposite, SWT.NONE);
+		label.setText("Filter: ");
+		GridDataFactory.swtDefaults().applyTo(label);
+
+	    favFilterText = new Text(filterComposite, SWT.BORDER);
+		GridDataFactory.fillDefaults().grab(true, false).applyTo(favFilterText);
+		favFilterText.addModifyListener(new ModifyListener() {
+			@Override
+			public void modifyText(ModifyEvent e) {
+				refreshFavouritesView();
+			}
+		});
+		
+		favouritesViewer = new TableViewer(favComposite, SWT.FULL_SELECTION | SWT.MULTI | SWT.BORDER);
+		GridDataFactory.fillDefaults().grab(true, true).applyTo(favouritesViewer.getControl());
+		favouritesViewer.getTable().setHeaderVisible(true);
+		favouritesViewer.getTable().setLinesVisible(true);
+		
+		TableViewerColumn nameColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
+		nameColumn.getColumn().setText(NAME);
+		nameColumn.getColumn().setWidth(150);
+
+		TableViewerColumn albumColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
+		albumColumn.getColumn().setText(ALBUM);
+		albumColumn.getColumn().setWidth(150);
+		
+		TableViewerColumn durationColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
+		durationColumn.getColumn().setText(HITS);
+		durationColumn.getColumn().setWidth(60);
+
+		TableViewerColumn urlColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
+		urlColumn.getColumn().setText(URL);
+		urlColumn.getColumn().setWidth(300);
+		
+		favouritesViewer.setContentProvider(new ArrayContentProvider());
+		favouritesViewer.setLabelProvider(new FavouritesLabelProvider());
+		favouritesViewer.setSorter(new ViewerSorter());
+		favouritesViewer.setFilters(new ViewerFilter[] { favouritesFilter });
+
+	}
+	
+	private void refreshAll() {
+         refreshPlayListView();
+         refreshLibraryView();
+         refreshFavouritesView();
+	}
+	
+	public void refreshLibraryView() {
+		Runnable runnable = new Runnable() {
+			@Override
+			public void run() {
+				Object[] elements = libraryViewer.getExpandedElements();
+				libraryViewer.refresh();
+				libraryViewer.setExpandedElements(elements);
+			}
+		};
+		safelyRunInUI(runnable);
+	}
+	
+	private void refreshFavouritesView() {
+		Runnable runnable = new Runnable() {
+			@Override
+			public void run() {
+				favouritesViewer.refresh();
+			}
+		};
+		safelyRunInUI(runnable);
+	}
+	
+	private void refreshPlayListView() {
+		Runnable runnable = new Runnable() {
+			@Override
+			public void run() {
+				playListViewer.refresh();
+			}
+		};
+		safelyRunInUI(runnable);
+	}
+	
+	private void safelyRunInUI(final Runnable runnable) {
+		if (Display.getDefault().getThread() == Thread.currentThread()) {
+			runnable.run();
+		} else {
+			Display.getDefault().asyncExec(new Runnable() {
+				@Override
+				public void run() {
+					runnable.run();
+				}
+			});
+		}
+	}
+	
 	private Job syncJob = new Job("Refresh") {
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
@@ -146,6 +257,7 @@ public class EMediaView extends ViewPart {
 				public void run() {
 					setLibraryButtonsEnabled(true);
 					libraryViewer.setInput(mediaLibrary);
+					favouritesViewer.setInput(favouritesRepository.getFavMedias());
 				}
 			});
 
@@ -161,17 +273,6 @@ public class EMediaView extends ViewPart {
 		pathsButton.setEnabled(enable);
 	}
 
-	public void refreshLibraryView() {
-		Display.getDefault().asyncExec(new Runnable() {
-			@Override
-			public void run() {
-				Object[] elements = libraryViewer.getExpandedElements();
-				libraryViewer.refresh();
-				libraryViewer.setExpandedElements(elements);
-			}
-		});
-
-	}
 
 	private void createLibrarySection() {
 		TabItem libraryTab = new TabItem(container, SWT.NONE);
@@ -190,14 +291,7 @@ public class EMediaView extends ViewPart {
 		favouritesRepository.setListener(new IListener() {
 			@Override
 			public void handleEvent(int eventKind) {
-				refreshLibraryView();
-				Display.getDefault().asyncExec(new Runnable() {
-					
-					@Override
-					public void run() {
-						playListViewer.refresh();
-					}
-				});
+				refreshAll();
 			}
 		});
 
@@ -288,10 +382,27 @@ public class EMediaView extends ViewPart {
 			return filter.isEmpty();
 		}
 
-		private boolean isMatch(String filter, String text) {
-			return text.toLowerCase().contains(filter.toLowerCase());
-		}
 	};
+	
+	private ViewerFilter favouritesFilter = new ViewerFilter() {
+		@Override
+		public boolean select(Viewer viewer, Object parentElement, Object element) {
+			String filter = favFilterText.getText().trim();
+			if (!filter.isEmpty()) {
+				if (element instanceof FavMedia) {
+					if (isMatch(filter, ((FavMedia) element).getKey())) {
+						return true;
+					}
+				} 
+			}
+			return filter.isEmpty();
+		}
+
+	};
+	
+	private boolean isMatch(String filter, String text) {
+		return text.toLowerCase().contains(filter.toLowerCase());
+	}
 
 	private Button syncAllButton;
 
@@ -344,6 +455,7 @@ public class EMediaView extends ViewPart {
 							"Are you sure you want to delete the selected '" + files2Delete.size() + "' file(s)?");
 					if (proceed) {
 						mediaLibrary.removeLocalFiles(files2Delete);
+						new RemoveFromFavAction(files2Delete).run();
 					}
 				}
 			});
@@ -1041,7 +1153,6 @@ public class EMediaView extends ViewPart {
 		TableViewerColumn urlColumn = new TableViewerColumn(playListViewer, SWT.NONE);
 		urlColumn.getColumn().setText(URL);
 		urlColumn.getColumn().setWidth(300);
-		playListViewer.setColumnProperties(new String[] { NAME, DURATION, URL });
 
 		playListViewer.setContentProvider(new ArrayContentProvider());
 		playListViewer.setLabelProvider(new PlaylistLabelProvider());
@@ -1145,6 +1256,77 @@ public class EMediaView extends ViewPart {
 		}
 
 	}
+	
+	private class FavouritesLabelProvider implements ITableLabelProvider, IColorProvider, IFontProvider {
+
+		@Override
+		public void addListener(ILabelProviderListener listener) {
+
+		}
+
+		@Override
+		public void dispose() {
+		}
+
+		@Override
+		public boolean isLabelProperty(Object element, String property) {
+			return false;
+		}
+
+		@Override
+		public void removeListener(ILabelProviderListener listener) {
+
+		}
+
+		@Override
+		public Image getColumnImage(Object element, int columnIndex) {
+			if (columnIndex == 0) {
+				return EMediaConstants.FAV_MUSIC_FILE;
+			}
+			return null;
+		}
+
+		@Override
+		public String getColumnText(Object element, int columnIndex) {
+			if (element instanceof FavMedia) {
+				FavMedia favMedia = (FavMedia) element;
+				switch (columnIndex) {
+				case 0:
+					return favMedia.getFile().getName();
+				case 1:
+					return favMedia.getFile().getParentFile().getName();
+				case 2:
+					return "+" + favMedia.getMembers().size();
+				default:
+					return favMedia.getFile().getAbsolutePath();
+				}
+
+			}
+			return null;
+		}
+
+		@Override
+		public Color getForeground(Object element) {
+			return null;
+		}
+
+		@Override
+		public Color getBackground(Object element) {
+			return null;
+		}
+
+		@Override
+		public Font getFont(Object element) {
+			if (element instanceof FavMedia) {
+				if (((FavMedia) element).isLocal()) {
+					return JFaceResources.getFontRegistry().getBold(JFaceResources.DEFAULT_FONT);
+				}
+			}
+			return null;
+		}
+
+	}
+	
 
 	public MediaPlayer getMediaPlayer() {
 		return mediaPlayer;
