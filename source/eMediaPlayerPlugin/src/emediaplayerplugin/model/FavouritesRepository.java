@@ -9,7 +9,6 @@ import java.net.NetworkInterface;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,6 +131,9 @@ public class FavouritesRepository {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		favMedia.getMembers().remove(EMediaConstants.FAV_MEMBER_LOCAL);
+		if (!favMedia.isValid()) {
+			favMediaMap.remove(key);
+		}
 		if (update) {
 			saveLocalFavourites();
 			notifyListener();
@@ -257,32 +259,36 @@ public class FavouritesRepository {
 		}
 	}
 
-	public Collection<String> getMembers() {
-		return memberNamesMap.values();
+	public List<String> getMembers() {
+		return new ArrayList<String>(memberNamesMap.values());
 	}
 
 	private String getMacAddress() {
-		String macAddress = "<Unknown>";
-		try {
-			InetAddress addr = InetAddress.getLocalHost();
-			NetworkInterface ni = NetworkInterface.getByInetAddress(addr);
-			byte[] macBytes = ni.getHardwareAddress();
-			StringBuilder sb = new StringBuilder();
-			for (int k = 0; k < macBytes.length; k++) {
-				sb.append(String.format("%02X%s", macBytes[k], (k < macBytes.length - 1) ? "-" : ""));
+		if (macAddress == null) {
+			macAddress = "<Unknown>";
+			try {
+				InetAddress addr = InetAddress.getLocalHost();
+				NetworkInterface ni = NetworkInterface.getByInetAddress(addr);
+				byte[] macBytes = ni.getHardwareAddress();
+				StringBuilder sb = new StringBuilder();
+				for (int k = 0; k < macBytes.length; k++) {
+					sb.append(String.format("%02X%s", macBytes[k], (k < macBytes.length - 1) ? "-" : ""));
+				}
+				macAddress = sb.toString();
+				
+			} catch (Exception e) {
 			}
-			macAddress = sb.toString();
-
-		} catch (Exception e) {
 		}
 		return macAddress;
 	}
 
-	private String getUserName() {
-		String userName = EMediaConstants.FAV_MEMBER_UNKNOWN;
-		try {
-			userName = InetAddress.getLocalHost().getHostName();
-		} catch (Exception e) {
+	public String getUserName() {
+		if (userName == null) {
+			userName = EMediaConstants.FAV_MEMBER_UNKNOWN;
+			try {
+				userName = InetAddress.getLocalHost().getHostName();
+			} catch (Exception e) {
+			}
 		}
 		return userName;
 	}

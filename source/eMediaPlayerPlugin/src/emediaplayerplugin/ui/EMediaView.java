@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.core.runtime.IAdaptable;
@@ -61,6 +62,7 @@ import org.eclipse.swt.ole.win32.OleAutomation;
 import org.eclipse.swt.ole.win32.OleControlSite;
 import org.eclipse.swt.ole.win32.OleFrame;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.FileDialog;
@@ -109,6 +111,7 @@ public class EMediaView extends ViewPart {
 	private MediaLibrary mediaLibrary;
 
 	private Text favFilterText;
+	private Combo favUsersCombo;
 	public static final String NAME = "Name";
 	public static final String DURATION = "Duration";
 	public static final String ALBUM = "Album";
@@ -136,6 +139,14 @@ public class EMediaView extends ViewPart {
 		TabItem favTab = new TabItem(container, SWT.NONE);
 		favTab.setText("Favourites");
 		
+		favouritesRepository = new FavouritesRepository(mediaLibrary.getRemotePath(), mediaLibrary);
+		favouritesRepository.setListener(new IListener() {
+			@Override
+			public void handleEvent(int eventKind) {
+				refreshAll();
+			}
+		});
+		
 		Composite favComposite = new Composite(container, SWT.NONE);
 		favTab.setControl(favComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(favComposite);
@@ -143,17 +154,36 @@ public class EMediaView extends ViewPart {
 
 		Composite filterComposite = new Composite(favComposite, SWT.NONE);
 		GridDataFactory.fillDefaults().grab(true, false).applyTo(filterComposite);
-		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(filterComposite);
+		GridLayoutFactory.fillDefaults().numColumns(4).applyTo(filterComposite);
 
+		String tooltip = "Type file name or album name or hit count(Ex:+3) to filter the items";
 		Label label = new Label(filterComposite, SWT.NONE);
 		label.setText("Filter: ");
+		label.setToolTipText(tooltip);
 		GridDataFactory.swtDefaults().applyTo(label);
 
 	    favFilterText = new Text(filterComposite, SWT.BORDER);
+	    favFilterText.setToolTipText(tooltip);
 		GridDataFactory.fillDefaults().grab(true, false).applyTo(favFilterText);
 		favFilterText.addModifyListener(new ModifyListener() {
 			@Override
 			public void modifyText(ModifyEvent e) {
+				refreshFavouritesView();
+			}
+		});
+		
+		Label usersLabel = new Label(filterComposite, SWT.NONE);
+		usersLabel.setText("User: ");
+		usersLabel.setToolTipText(tooltip);
+		GridDataFactory.swtDefaults().applyTo(usersLabel);
+		
+	    favUsersCombo = new Combo(filterComposite, SWT.READ_ONLY);
+		GridDataFactory.fillDefaults().grab(true, false).applyTo(favUsersCombo);
+		populateComboUsers();
+		
+		favUsersCombo.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
 				refreshFavouritesView();
 			}
 		});
@@ -183,9 +213,25 @@ public class EMediaView extends ViewPart {
 		favouritesViewer.setLabelProvider(new FavouritesLabelProvider());
 		favouritesViewer.setSorter(new ViewerSorter());
 		favouritesViewer.setFilters(new ViewerFilter[] { favouritesFilter });
+		hookLibAndFavContextMenu(false);
 
 	}
 	
+	private void populateComboUsers() {
+		String user = favUsersCombo.getText();
+		favUsersCombo.deselectAll();
+		List<String> members = favouritesRepository.getMembers();
+		members.remove(favouritesRepository.getUserName());
+		Collections.sort(members);
+		members.add(0, EMediaConstants.FAV_MEMBER_All);
+		members.add(0, EMediaConstants.FAV_MEMBER_LOCAL);
+		favUsersCombo.setItems(members.toArray(new String[0]));
+        favUsersCombo.select(members.indexOf(user));
+        if (favUsersCombo.getText().isEmpty()) {
+        	favUsersCombo.select(0);
+        }
+	}
+
 	private void refreshAll() {
          refreshPlayListView();
          refreshLibraryView();
@@ -208,7 +254,7 @@ public class EMediaView extends ViewPart {
 		Runnable runnable = new Runnable() {
 			@Override
 			public void run() {
-				favouritesViewer.refresh();
+				favouritesViewer.setInput(favouritesRepository.getFavMedias());
 			}
 		};
 		safelyRunInUI(runnable);
@@ -237,6 +283,28 @@ public class EMediaView extends ViewPart {
 		}
 	}
 	
+	Job syncFavouritesJob = new Job("Syncing Favourites") {
+		@Override
+		protected IStatus run(IProgressMonitor monitor) {
+			try {
+				if (favouritesRepository != null) {
+					favouritesRepository.syncRepositories();
+					Runnable runnable = new Runnable() {
+						@Override
+						public void run() {
+							populateComboUsers();
+						}
+					};
+					safelyRunInUI(runnable);
+				}
+
+			} catch (Exception e) {
+				EMediaPlayerActivator.getDefault().logException(e);
+			}
+			return Status.OK_STATUS;
+		}
+	};
+	
 	private Job syncJob = new Job("Refresh") {
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
@@ -248,17 +316,12 @@ public class EMediaView extends ViewPart {
 				}
 			});
 			mediaLibrary.syncAll();
-			try {
-				favouritesRepository.syncRepositories();
-			} catch (Exception e) {
-				EMediaPlayerActivator.getDefault().logException(e);
-			}
+			syncFavouritesJob.schedule();
 			Display.getDefault().asyncExec(new Runnable() {
 				@Override
 				public void run() {
 					setLibraryButtonsEnabled(true);
 					libraryViewer.setInput(mediaLibrary);
-					favouritesViewer.setInput(favouritesRepository.getFavMedias());
 				}
 			});
 
@@ -284,15 +347,6 @@ public class EMediaView extends ViewPart {
 			@Override
 			public void handleEvent(int eventKind) {
 				refreshLibraryView();
-			}
-		});
-
-		// TODO:
-		favouritesRepository = new FavouritesRepository(mediaLibrary.getRemotePath(), mediaLibrary);
-		favouritesRepository.setListener(new IListener() {
-			@Override
-			public void handleEvent(int eventKind) {
-				refreshAll();
 			}
 		});
 
@@ -353,7 +407,7 @@ public class EMediaView extends ViewPart {
 		});
 
 		syncJob.schedule();
-		hookContextMenu();
+		hookLibAndFavContextMenu(true);
 	}
 
 	private ViewerFilter libraryFilter = new ViewerFilter() {
@@ -388,15 +442,23 @@ public class EMediaView extends ViewPart {
 	private ViewerFilter favouritesFilter = new ViewerFilter() {
 		@Override
 		public boolean select(Viewer viewer, Object parentElement, Object element) {
-			String filter = favFilterText.getText().trim();
-			if (!filter.isEmpty()) {
-				if (element instanceof FavMedia) {
-					if (isMatch(filter, ((FavMedia) element).getKey())) {
-						return true;
-					}
-				} 
+			String favFilter = favFilterText.getText().trim();
+			if (element instanceof FavMedia) {
+				FavMedia favMedia = (FavMedia) element;
+				boolean isFileMatch = isMatch(favFilter, favMedia.getKey());
+				boolean isHitsMatch = isMatch(favFilter, "+" + favMedia.getMembers().size());
+				boolean isUserFiltered = false;
+				String user = favUsersCombo.getText();
+				if (user.equals(EMediaConstants.FAV_MEMBER_All)) {
+					isUserFiltered = true;
+				} else if (user.equals(EMediaConstants.FAV_MEMBER_LOCAL)) {
+					isUserFiltered = favMedia.isLocal();
+				} else {
+					isUserFiltered = favMedia.getMembers().contains(user);
+				}
+				return (isFileMatch || isHitsMatch || favFilter.isEmpty()) && isUserFiltered;
 			}
-			return filter.isEmpty();
+			return false;
 		}
 
 	};
@@ -409,21 +471,28 @@ public class EMediaView extends ViewPart {
 
 	private Button pathsButton;
 
-	private void hookContextMenu() {
+	private void hookLibAndFavContextMenu(final boolean isLibrary) {
 		MenuManager menuMgr = new MenuManager("#PopupMenu");
 		menuMgr.setRemoveAllWhenShown(true);
 		menuMgr.addMenuListener(new IMenuListener() {
 			public void menuAboutToShow(IMenuManager manager) {
-				fillMediaLibraryContextMenu(manager);
+				fillLibraryAndFavMenu(manager, isLibrary);
 			}
 		});
-		Menu menu = menuMgr.createContextMenu(libraryViewer.getControl());
-		libraryViewer.getControl().setMenu(menu);
-		getSite().registerContextMenu(menuMgr, libraryViewer);
+		Viewer viewer = isLibrary ? libraryViewer : favouritesViewer;
+		Menu menu = menuMgr.createContextMenu(viewer.getControl());
+		viewer.getControl().setMenu(menu);
+		getSite().registerContextMenu(menuMgr, viewer);
 	}
 
-	private void fillMediaLibraryContextMenu(IMenuManager manager) {
-		final IStructuredSelection structuredSelection = (IStructuredSelection) libraryViewer.getSelection();
+	private void fillLibraryAndFavMenu(IMenuManager manager, boolean isLibraryMenu) {
+	    IStructuredSelection structuredSelection = null;
+		if (isLibraryMenu) {
+			structuredSelection = (IStructuredSelection) libraryViewer.getSelection();
+		} else {
+			structuredSelection = (IStructuredSelection) favouritesViewer.getSelection();
+		}
+		
 		final List<File> selectedFiles = getSelectedFiles(structuredSelection);
 		boolean singleSelection = structuredSelection.size() == 1;
 		
@@ -440,8 +509,8 @@ public class EMediaView extends ViewPart {
 				files2Delete.add(file);
 			}
 		}
-
-		if (!files2Delete.isEmpty()) {
+		
+		if (!files2Delete.isEmpty() && isLibraryMenu) {
 			manager.add(new Action("Delete") {
 				@Override
 				public void run() {
@@ -455,6 +524,7 @@ public class EMediaView extends ViewPart {
 			});
 			manager.add(new Separator());
 		}
+		
 		
 		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
 		DownloadFilesAction downloadFilesAction = new DownloadFilesAction(selectedFiles);
@@ -480,6 +550,12 @@ public class EMediaView extends ViewPart {
 			manager.add(removeFavAction);
 		}
 		manager.add(new Separator());
+		
+		if (!isLibraryMenu) {
+			manager.add(syncFavouritesAction);
+			manager.add(shareLocalFavouritesAction);
+			manager.add(new Separator());
+		}
 
 
 		if (singleSelection) {
@@ -562,13 +638,40 @@ public class EMediaView extends ViewPart {
 		}
 	}
 	
+	private Action syncFavouritesAction = new Action("Sync Favourites"){
+		@Override
+		public void run() {
+			shareFavouritesJob.schedule();
+		}
+	};
+	
+	
+	private Action shareLocalFavouritesAction = new Action("Share Local Favourites"){
+		@Override
+		public void run() {
+			shareFavouritesJob.schedule();
+		}
+	};
+	
+	Job shareFavouritesJob = new Job("Sharing Local Favourites") {
+		@Override
+		protected IStatus run(IProgressMonitor monitor) {
+			try {
+				favouritesRepository.saveRemoteFavourites();
+			} catch (Exception e) {
+				EMediaPlayerActivator.getDefault().logException(e);
+			}
+			return Status.OK_STATUS;
+		}
+	};
+	
 	private class AddToFavAction extends Action {
 		private List<File> favFiles = new ArrayList<File>();
 
 		public AddToFavAction(List<File> selectedFiles) {
 			super("Add To Favourites");
 			for (File file : selectedFiles) {
-				if (!favouritesRepository.isFavMedia(file.getAbsolutePath())) {
+				if (!favouritesRepository.isLocalFavMedia(file.getAbsolutePath())) {
 					favFiles.add(file);
 				}
 			}
@@ -598,7 +701,7 @@ public class EMediaView extends ViewPart {
 		public RemoveFromFavAction(List<File> selectedFiles) {
 			super("Remove From Favourites");
 			for (File file : selectedFiles) {
-				if (favouritesRepository.isFavMedia(file.getAbsolutePath())) {
+				if (favouritesRepository.isLocalFavMedia(file.getAbsolutePath())) {
 					favFiles.add(file);
 				}
 			}
@@ -617,7 +720,7 @@ public class EMediaView extends ViewPart {
 		}
 		
 		@Override
-		public boolean isChecked() {
+		public boolean isEnabled() {
 			return !favFiles.isEmpty();
 		}
 	}
