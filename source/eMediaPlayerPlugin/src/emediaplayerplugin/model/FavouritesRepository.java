@@ -9,6 +9,7 @@ import java.net.NetworkInterface;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,9 +132,10 @@ public class FavouritesRepository {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		favMedia.getMembers().remove(EMediaConstants.FAV_MEMBER_LOCAL);
-		if (!favMedia.isValid()) {
-			favMediaMap.remove(key);
-		}
+		// donot remove as we have to update remote repo
+//		if (!favMedia.isValid()) {
+//			favMediaMap.remove(key);
+//		}
 		if (update) {
 			saveLocalFavourites();
 			notifyListener();
@@ -141,7 +143,14 @@ public class FavouritesRepository {
 	}
 
 	public List<FavMedia> getFavMedias() {
-		return new ArrayList<FavMedia>(favMediaMap.values());
+		Collection<FavMedia> values = favMediaMap.values();
+		ArrayList<FavMedia> filtered = new ArrayList<FavMedia>();
+		for (FavMedia favMedia : values) {
+			if (favMedia.isValid()) {
+				filtered.add(favMedia);
+			}
+		}
+		return filtered;
 	}
 	
 	public boolean isLocalFavMedia(String fileURL) {
@@ -196,18 +205,18 @@ public class FavouritesRepository {
 			file.createNewFile();
 			channel = new RandomAccessFile(file, "rw").getChannel();
 			FileLock lock = channel.lock();
-			Properties properties = new Properties();
+			Properties remoteProperties = new Properties();
 			if (remoteFile.exists()) {
-				properties.load(new FileReader(remoteFile));
+				remoteProperties.load(new FileReader(remoteFile));
 			}
 			for (Entry<String, FavMedia> entry : favMediaMap.entrySet()) {
 				String key = entry.getKey();
 				FavMedia value = entry.getValue();
-				Object object = properties.get(key);
+				Object object = remoteProperties.get(key);
 				if (value.isLocal()) {
 					// check and add to files map
 					if (object == null) {
-						object = macAddress;
+						object = getMacAddress();
 					} else {
 						boolean remoteExists = false;
 						String[] macArray = object.toString().split(MAC_SEPARATOR);
@@ -220,7 +229,7 @@ public class FavouritesRepository {
 							object = object.toString() + MAC_SEPARATOR + macAddress;
 						}
 					}
-				} else {
+				} else if (object != null) {
 					// remove from files map
 					String[] macArray = object.toString().split(MAC_SEPARATOR);
 					StringBuilder builder = new StringBuilder();
@@ -237,12 +246,12 @@ public class FavouritesRepository {
 					}
 				}
 				if (object == null) {
-					properties.remove(key);
+					remoteProperties.remove(key);
 				} else {
-					properties.put(key, object);
+					remoteProperties.put(key, object);
 				}
 			}
-			properties.store(new FileWriter(remoteFile), null);
+			remoteProperties.store(new FileWriter(remoteFile), null);
 			
 			Properties members = new Properties();
 			if (membersFile.exists()) {
