@@ -641,7 +641,7 @@ public class EMediaView extends ViewPart {
 	private Action syncFavouritesAction = new Action("Sync Favourites"){
 		@Override
 		public void run() {
-			shareFavouritesJob.schedule();
+			syncFavouritesJob.schedule();
 		}
 	};
 	
