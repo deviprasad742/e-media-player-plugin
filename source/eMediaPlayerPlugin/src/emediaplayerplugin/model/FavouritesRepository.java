@@ -50,6 +50,12 @@ public class FavouritesRepository {
 		favMediaMap.clear();
 		memberNamesMap.clear();
 		localFile = new File(EMediaConstants.LOCAL_SETTINGS_PATH + FAVOURITES_FILE);
+		if (!localFile.getParentFile().exists()) {
+			boolean mkdirs = localFile.getParentFile().mkdirs();
+			if (!mkdirs) {
+				localFile = new File(EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH + FAVOURITES_FILE); 
+			}
+		}
 		remoteFile = new File(remoteSettingsPath + FAVOURITES_FILE);
 		membersFile = new File(remoteSettingsPath + MEMBERS_FILE);
 

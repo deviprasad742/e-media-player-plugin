@@ -27,6 +27,8 @@ public class EMediaConstants {
 	public static final String FAV_MEMBER_All= "<All>";
 	public static final String FAV_MEMBER_LOCAL= "<Local>";
 	public static final String LOCAL_SETTINGS_PATH = "C:\\Program Files\\EMediaPlayerPlugin\\";
+	public static final String ALTERNATE_LOCAL_SETTINGS_PATH = "C:\\EMediaPlayerPlugin\\";
+
 	public static final String FAV_MEMBER_UNKNOWN= "<Unknown User>";
 
 	public static final String EXT_JPEG = "jpeg";
