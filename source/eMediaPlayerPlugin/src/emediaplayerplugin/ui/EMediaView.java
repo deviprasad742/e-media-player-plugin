@@ -227,6 +227,15 @@ public class EMediaView extends ViewPart {
 			}
 		});
 		favouritesViewer.setFilters(new ViewerFilter[] { favouritesFilter });
+		favouritesViewer.addDoubleClickListener(new IDoubleClickListener() {
+			@Override
+			public void doubleClick(DoubleClickEvent event) {
+				Object element = ((IStructuredSelection) favouritesViewer.getSelection()).getFirstElement();
+				if (element instanceof FavMedia) {
+					downloadFiles(Arrays.asList(((FavMedia) element).getFile()), true, true);
+				}
+			}
+		});
 		hookLibAndFavContextMenu(false);
 
 	}
@@ -302,6 +311,7 @@ public class EMediaView extends ViewPart {
 		protected IStatus run(IProgressMonitor monitor) {
 			try {
 				if (favouritesRepository != null) {
+					favouritesRepository.setRemoteSettingsPath(mediaLibrary.getRemotePath());
 					favouritesRepository.syncRepositories();
 					Runnable runnable = new Runnable() {
 						@Override
