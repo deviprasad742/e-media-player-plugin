@@ -3,7 +3,12 @@ package emediaplayerplugin.model;
 import org.eclipse.swt.graphics.Image;
 
 public enum ElementType {
-	FILE_NORMAL, FILE_REMOTE, FILE_SYNCED, FOLDER_NORMAL, FOLDER_REMOTE, FOLDER_SYNCED;
+	FILE_REMOTE, 
+	FILE_SYNCED, 
+	FILE_NORMAL, 
+	FOLDER_REMOTE, 
+	FOLDER_SYNCED,
+	FOLDER_NORMAL;
 
 	public Image getImage() {
 		switch (this) {

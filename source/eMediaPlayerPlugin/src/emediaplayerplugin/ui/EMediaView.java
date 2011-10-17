@@ -439,7 +439,7 @@ public class EMediaView extends ViewPart {
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryViewer.getControl());
 		libraryViewer.setContentProvider(new LibraryContentProvider());
 		libraryViewer.setLabelProvider(new LibraryLabelProvider());
-		libraryViewer.setSorter(new ViewerSorter());
+		libraryViewer.setSorter(new LibrarySorter());
 		addLibraryButtonSection(libraryComposite);
 		libraryViewer.setFilters(new ViewerFilter[] { libraryFilter });
 		ColumnViewerToolTipSupport.enableFor(libraryViewer);
@@ -460,6 +460,16 @@ public class EMediaView extends ViewPart {
 		hookLibAndFavContextMenu(true);
 	}
 
+	private class LibrarySorter extends ViewerSorter{
+		
+		@Override
+		public int compare(Viewer viewer, Object e1, Object e2) {
+			int compareTo = mediaLibrary.getElementType(e1).compareTo(mediaLibrary.getElementType(e2));
+			return compareTo == 0 ? super.compare(viewer, e1, e2) : compareTo;
+		}
+	}
+	
+	
 	private ViewerFilter libraryFilter = new ViewerFilter() {
 
 		@Override
