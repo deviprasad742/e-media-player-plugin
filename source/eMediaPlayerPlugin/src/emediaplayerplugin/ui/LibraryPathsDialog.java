@@ -18,8 +18,8 @@ import org.eclipse.swt.widgets.Text;
 import emediaplayerplugin.EMediaPlayerActivator;
 
 public class LibraryPathsDialog extends Dialog {
-	private static final String DEFAULT_LOCAL_PATH = "C:\\EMediaMusic\\local";
-	private static final String DEFAULT_REMOTE_PATH = "C:\\EMediaMusic\\remote";
+	private static final String DEFAULT_LOCAL_PATH = "C:\\EMediaPlayerPlugin\\local";
+	private static final String DEFAULT_REMOTE_PATH = "C:\\EMediaPlayerPlugin\\remote";
 
 	private static final String LOCAL_PATH = "emediaplayerplugin.ui.LibraryPathsDialog.localPath";
 	private static final String REMOTE_PATH = "emediaplayerplugin.ui.LibraryPathsDialog.remotePath";

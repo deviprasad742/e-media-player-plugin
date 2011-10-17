@@ -24,6 +24,8 @@ public class EMediaConstants {
 	public static final Image FAV_MUSIC_FILE = createImage("icons/fav.png");
 
 	public static final String EMEDIA_SHARED_FOLDER= "#eMediaShared";
+	public static final String EMEDIA_SHARED_URL= "[#eMediaSharedUrl]:";
+
 	public static final String FAV_MEMBER_All= "<All>";
 	public static final String FAV_MEMBER_LOCAL= "<Local>";
 	public static final String LOCAL_SETTINGS_PATH = "C:\\Program Files\\EMediaPlayerPlugin\\";
@@ -33,6 +35,8 @@ public class EMediaConstants {
 
 	public static final String EXT_JPEG = "jpeg";
 	public static final String EXT_JPG = "jpg";
+	public static final String SEPARATOR = ",";
+
 
 
 	public static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();

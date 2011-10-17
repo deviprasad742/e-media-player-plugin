@@ -12,10 +12,13 @@ import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.core.runtime.jobs.JobChangeAdapter;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.IDialogConstants;
@@ -46,6 +49,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.SWTError;
 import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.TextTransfer;
+import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.events.ModifyEvent;
@@ -71,6 +75,7 @@ import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbench;
@@ -132,7 +137,22 @@ public class EMediaView extends ViewPart {
 		createPlayListSection();
 		createLibrarySection();
 		createFavouritesSection();
+		fillToolbar();
 		addDisposeListeners();
+	}
+
+	private void fillToolbar() {
+		IActionBars bars = getViewSite().getActionBars();
+		fillLocalPullDown(bars.getMenuManager());
+		fillLocalToolBar(bars.getToolBarManager());
+	}
+
+	private void fillLocalToolBar(IToolBarManager toolBarManager) {
+		toolBarManager.add(new PlayURLFilesAction());
+	}
+
+	private void fillLocalPullDown(IMenuManager menuManager) {
+		
 	}
 
 	private void createFavouritesSection() {
@@ -246,8 +266,8 @@ public class EMediaView extends ViewPart {
 		List<String> members = favouritesRepository.getMembers();
 		members.remove(favouritesRepository.getUserName());
 		Collections.sort(members);
-		members.add(0, EMediaConstants.FAV_MEMBER_All);
 		members.add(0, EMediaConstants.FAV_MEMBER_LOCAL);
+		members.add(0, EMediaConstants.FAV_MEMBER_All);
 		favUsersCombo.setItems(members.toArray(new String[0]));
         favUsersCombo.select(members.indexOf(user));
         if (favUsersCombo.getText().isEmpty()) {
@@ -552,6 +572,8 @@ public class EMediaView extends ViewPart {
 		
 		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
 		DownloadFilesAction downloadFilesAction = new DownloadFilesAction(selectedFiles);
+		ShareFilesURLAction shareFilesURLAction = new ShareFilesURLAction(selectedFiles);
+
 		if (shareFilesAction.isEnabled()) {
 			manager.add(shareFilesAction);
 		}
@@ -560,7 +582,11 @@ public class EMediaView extends ViewPart {
 			manager.add(downloadFilesAction);
 		}
 		
-		if (shareFilesAction.isEnabled() || downloadFilesAction.isEnabled()) {
+		if (shareFilesURLAction.isEnabled()) {
+			manager.add(shareFilesURLAction);
+		}
+		
+		if (shareFilesAction.isEnabled() || downloadFilesAction.isEnabled() || shareFilesURLAction.isEnabled()) {
 			manager.add(new Separator());
 		}
 		
@@ -577,7 +603,6 @@ public class EMediaView extends ViewPart {
 		
 		if (!isLibraryMenu) {
 			manager.add(syncFavouritesAction);
-			manager.add(shareLocalFavouritesAction);
 			manager.add(new Separator());
 		}
 
@@ -599,6 +624,66 @@ public class EMediaView extends ViewPart {
 
 	}
 	
+	private class ShareFilesURLAction extends Action {
+		private List<File> files2Share = new ArrayList<File>();
+		private List<File> selectedFiles;
+
+		public ShareFilesURLAction(List<File> selectedFiles) {
+			super("Copy URL");
+			this.selectedFiles = selectedFiles;
+			for (File file : selectedFiles) {
+				if (mediaLibrary.isRemoteShareRequired(file)) {
+					files2Share.add(file);
+				}
+			}
+			if (!files2Share.isEmpty()) {
+				setText("Share And Copy URL");
+			}
+		}
+
+		public void run() {
+			ShareJob shareJob = new ShareJob(files2Share);
+			shareJob.addJobChangeListener(new JobChangeAdapter() {
+				@Override
+				public void done(IJobChangeEvent event) {
+					final StringBuilder builder = new StringBuilder(EMediaConstants.EMEDIA_SHARED_URL);
+					boolean inRepo = false;
+					for (File file : selectedFiles) {
+						if (mediaLibrary.isRemoteFile(file)) {
+							inRepo = true;
+							builder.append(FavMedia.getKey(file));
+							builder.append(EMediaConstants.SEPARATOR);
+						}
+					}
+					if (inRepo) {
+						Runnable runnable = new Runnable() {
+							@Override
+							public void run() {
+								String shareUrl = builder.substring(0, builder.length() - 1);
+								Clipboard clipboard = new Clipboard(Display.getDefault());
+								try {
+									Transfer[] transfers = new Transfer[]{TextTransfer.getInstance()};
+									Object[] data = new Object[]{shareUrl};
+									clipboard.setContents(data, transfers);
+								} finally {
+									clipboard.dispose();
+								}
+							}
+						};
+						safelyRunInUI(runnable);
+
+					}
+				}
+			});
+			shareJob.schedule();
+		}
+		
+		@Override
+		public boolean isEnabled() {
+			return !selectedFiles.isEmpty();
+		}
+	}
+	
 	private class ShareFilesAction extends Action {
 		private List<File> files2Share = new ArrayList<File>();
 
@@ -612,9 +697,10 @@ public class EMediaView extends ViewPart {
 		}
 
 		public void run() {
-			shareFiles(files2Share);
+			ShareJob shareJob = new ShareJob(files2Share);
+			shareJob.schedule();
 		}
-		
+
 		@Override
 		public boolean isEnabled() {
 			return !files2Share.isEmpty();
@@ -642,6 +728,8 @@ public class EMediaView extends ViewPart {
 			return !files2Download.isEmpty();
 		}
 	}
+	
+	
 	private class EnqueSelectedFilesAction extends Action {
 		private List<File> selectedFiles = new ArrayList<File>();
         private boolean play;
@@ -662,6 +750,85 @@ public class EMediaView extends ViewPart {
 		}
 	}
 	
+	private class PlayURLFilesAction extends Action {
+
+		public PlayURLFilesAction() {
+			setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_OBJ_ADD));
+			setText("Play URL");
+			setToolTipText("Plays files present in the clipboard if it represents a valid url");
+		}
+		
+		public void run() {
+			final String[] fileKeys = getClipFileKeys();
+			
+			if (fileKeys == null || fileKeys.length == 0) {
+				String message = "Clipboard doesnt contain a valid url which contains the files to play";
+				MessageDialog.openInformation(Display.getDefault().getActiveShell(), "Invalid URL", message);
+				return;
+			}
+			
+			boolean isSyncRequired = false;
+			for (String fileKey : fileKeys) {
+				File file = mediaLibrary.getFile(FavMedia.getFolderName(fileKey), FavMedia.getFileName(fileKey));
+				if (file == null) {
+					isSyncRequired = true;
+					break;
+				}
+			}
+
+			if (isSyncRequired) {
+				syncJob.addJobChangeListener(new JobChangeAdapter() {
+					public void done(IJobChangeEvent event) {
+                        downloadAndPlayFiles(fileKeys);
+					};
+				});
+				syncJob.schedule();
+			} else {
+                downloadAndPlayFiles(fileKeys);
+			}
+		}
+		
+		private void downloadAndPlayFiles(String[] fileKeys) {
+			List<File> selectedFiles = new ArrayList<File>();
+			for (String fileKey : fileKeys) {
+				File file = mediaLibrary.getFile(FavMedia.getFolderName(fileKey), FavMedia.getFileName(fileKey));
+				if (file != null) {
+					selectedFiles.add(file);
+				}
+			}
+			downloadFiles(selectedFiles, true, true);
+		}
+		
+		
+		@Override
+		public boolean isEnabled() {
+			return true;
+		}
+		
+	}
+	
+	private String[] getClipFileKeys() {
+		Clipboard clipboard = new Clipboard(Display.getDefault());
+		try {
+			Object contents = clipboard.getContents(TextTransfer.getInstance());
+			if (contents != null) {
+				String shareUrl = contents.toString();
+				int index;
+				if ((index = shareUrl.indexOf(EMediaConstants.EMEDIA_SHARED_URL)) != -1) {
+					int beginIndex = index + EMediaConstants.EMEDIA_SHARED_URL.length() + 1;
+					if (beginIndex < shareUrl.length()) {
+						String string = shareUrl.substring(beginIndex);
+						String[] keys = string.split(EMediaConstants.SEPARATOR);
+						return keys;
+					}
+				}
+			}
+		} finally {
+			clipboard.dispose();
+		}
+		return null;
+	}
+	
 	private Action syncFavouritesAction = new Action("Sync Favourites"){
 		@Override
 		public void run() {
@@ -669,13 +836,6 @@ public class EMediaView extends ViewPart {
 		}
 	};
 	
-	
-	private Action shareLocalFavouritesAction = new Action("Share Local Favourites"){
-		@Override
-		public void run() {
-			shareFavouritesJob.schedule();
-		}
-	};
 	
 	Job shareFavouritesJob = new Job("Sharing Local Favourites") {
 		@Override
@@ -711,6 +871,7 @@ public class EMediaView extends ViewPart {
 					EMediaPlayerActivator.getDefault().logException(e);
 				}
 			}
+			shareFavouritesJob.schedule();
 		}
 		
 		@Override
@@ -741,6 +902,7 @@ public class EMediaView extends ViewPart {
 					EMediaPlayerActivator.getDefault().logException(e);
 				}
 			}
+			shareFavouritesJob.schedule();
 		}
 		
 		@Override
@@ -809,8 +971,10 @@ public class EMediaView extends ViewPart {
 		Job downloadJob = new Job("Downloading...") {
 			@Override
 			protected IStatus run(IProgressMonitor monitor) {
+				int i = 0;
 				for (File file : files2Download) {
 					try {
+						i++;
 						final boolean isLocal = mediaLibrary.isLocalFile(file);
 						if (!isLocal && !mediaLibrary.isRemoteLocal()) {
 							monitor.beginTask("Downloading files from shared library", IProgressMonitor.UNKNOWN);
@@ -818,7 +982,7 @@ public class EMediaView extends ViewPart {
 
 						File localFile = mediaLibrary.getLocalFile(file);
 						if (addToPlayList) {
-							mediaPlayer.addToPlayList(localFile.getAbsolutePath(), play);
+							mediaPlayer.addToPlayList(localFile.getAbsolutePath(), play && i == 1);
 						}
 					} catch (Exception e) {
 						EMediaPlayerActivator.getDefault().logException(e);
@@ -837,30 +1001,27 @@ public class EMediaView extends ViewPart {
 		downloadJob.schedule();
 	}
 
-	private void shareFiles(final List<File> files) {
-		Job shareJob = new Job("Sharing...") {
-			@Override
-			protected IStatus run(IProgressMonitor monitor) {
-				for (File file : files) {
-					try {
-						mediaLibrary.addToRemoteRepository(file);
-					} catch (Exception e) {
-						EMediaPlayerActivator.getDefault().logException(e);
-						Display.getDefault().asyncExec(new Runnable() {
-							@Override
-							public void run() {
-								MessageDialog
-										.openError(Display.getDefault().getActiveShell(), "Failed", "Failed to share file. See logs for details");
-							}
-						});
+	private class ShareJob extends Job {
+		private List<File> files;
+		
+		public ShareJob(List<File> files) {
+			super("Sharing...");
+			this.files = files;
+		}
 
-					}
+		@Override
+		protected IStatus run(IProgressMonitor monitor) {
+			for (File file : files) {
+				try {
+					mediaLibrary.addToRemoteRepository(file);
+				} catch (Exception e) {
+					EMediaPlayerActivator.getDefault().logException(e);
 				}
-				return Status.OK_STATUS;
 			}
-		};
-		shareJob.schedule();
-	}
+			return Status.OK_STATUS;
+		}
+	};
+	
 
 	private boolean isEnterMode;
 	private int folderCount;
@@ -1009,10 +1170,9 @@ public class EMediaView extends ViewPart {
 			public boolean preShutdown(IWorkbench workbench, boolean forced) {
 				try {
 					mediaPlayer.savePlaylist();
-					favouritesRepository.saveAllFavourites();
 					mediaPlayer.dispose();
 				} catch (Exception e) {
-					e.printStackTrace();
+					EMediaPlayerActivator.getDefault().logException(e);
 				}
 				return true;
 			}
@@ -1160,8 +1320,16 @@ public class EMediaView extends ViewPart {
 		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
 		if (shareFilesAction.isEnabled()) {
 			manager.add(shareFilesAction);
+		}
+		ShareFilesURLAction shareFilesURLAction = new ShareFilesURLAction(selectedFiles);
+		if (shareFilesURLAction.isEnabled()) {
+			manager.add(shareFilesURLAction);
+		}
+		
+		if (shareFilesAction.isEnabled() || shareFilesURLAction.isEnabled()) {
 			manager.add(new Separator());
 		}
+
 		
 
 		if (structuredSelection.size() == 1 && !((MediaFile) structuredSelection.getFirstElement()).isWebUrl()) {

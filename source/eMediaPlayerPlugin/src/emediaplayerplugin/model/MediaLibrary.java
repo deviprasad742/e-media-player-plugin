@@ -193,12 +193,12 @@ public class MediaLibrary {
 	
 	public synchronized boolean isLocalFile(File file) {
 		Map<File, String> files = localLib.get(file.getParentFile().getName());
-		return files != null && files.containsKey(file);
+		return files != null && files.containsValue(file.getName());
 	}
 	
 	public synchronized boolean isRemoteFile(File file) {
 		Map<File, String> files = remoteLib.get(file.getParentFile().getName());
-		return files != null && files.containsKey(file);
+		return files != null && files.containsValue(file.getName());
 	}
 
 	public synchronized boolean isLocalFolder(String folderName) {
