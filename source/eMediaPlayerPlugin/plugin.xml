@@ -62,5 +62,36 @@
          </action>
       </actionSet>
    </extension>
+   <extension
+         point="org.eclipse.ui.viewActions">
+      <viewContribution
+            id="emediaplayerplugin.ui.EMediaViewContribution"
+            targetID="emediaplayerplugin.ui.EMediaView">
+         <action
+               class="emediaplayerplugin.actions.TogglePlayStateAction"
+               icon="icons/play_button.png"
+               id="emediaplayerplugin.actions.TogglePlayStateActionion"
+               label="Play/Pause"
+               style="push"
+               toolbarPath="additions">
+         </action>
+         <action
+               class="emediaplayerplugin.actions.PlayNextAction"
+               icon="icons/btn_next.gif"
+               id="emediaplayerplugin.actions.PlayNextAction"
+               label="Play Next"
+               style="push"
+               toolbarPath="additions">
+         </action>
+         <action
+               class="emediaplayerplugin.actions.PlayPreviousAction"
+               icon="icons/btn_previous.gif"
+               id="emediaplayerplugin.actions.PlayPreviousAction"
+               label="Play Previous"
+               style="push"
+               toolbarPath="additions">
+         </action>
+      </viewContribution>
+   </extension>
 
 </plugin>
