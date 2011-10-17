@@ -94,6 +94,7 @@ import emediaplayerplugin.model.IListener;
 import emediaplayerplugin.model.MediaFile;
 import emediaplayerplugin.model.MediaLibrary;
 import emediaplayerplugin.model.MediaPlayer;
+import emediaplayerplugin.ui.notifications.EventNotifier;
 
 /**
  * 
@@ -102,6 +103,10 @@ import emediaplayerplugin.model.MediaPlayer;
  */
 
 public class EMediaView extends ViewPart {
+
+	private static final String ADD_TO_LIBRARY_LABEL = "Add To Library";
+	private static final String SHARE_LABEL = "Share";
+
 
 	public static final String ID = "emediaplayerplugin.ui.EMediaView";
 
@@ -344,7 +349,7 @@ public class EMediaView extends ViewPart {
 				}
 
 			} catch (Exception e) {
-				EMediaPlayerActivator.getDefault().logException(e);
+				showAndLogError(getName(), "Failed to synchronize favourites.", e);
 			}
 			return Status.OK_STATUS;
 		}
@@ -521,7 +526,7 @@ public class EMediaView extends ViewPart {
 		menuMgr.setRemoveAllWhenShown(true);
 		menuMgr.addMenuListener(new IMenuListener() {
 			public void menuAboutToShow(IMenuManager manager) {
-				fillLibraryAndFavMenu(manager, isLibrary);
+				fillContextMenu(manager, isLibrary, false);
 			}
 		});
 		Viewer viewer = isLibrary ? libraryViewer : favouritesViewer;
@@ -530,10 +535,12 @@ public class EMediaView extends ViewPart {
 		getSite().registerContextMenu(menuMgr, viewer);
 	}
 
-	private void fillLibraryAndFavMenu(IMenuManager manager, boolean isLibraryMenu) {
+	private void fillContextMenu(IMenuManager manager, boolean isLibraryMenu, boolean isPlayListMenu) {
 	    IStructuredSelection structuredSelection = null;
 		if (isLibraryMenu) {
 			structuredSelection = (IStructuredSelection) libraryViewer.getSelection();
+		} else if (isPlayListMenu) {
+			structuredSelection = (IStructuredSelection) playListViewer.getSelection();
 		} else {
 			structuredSelection = (IStructuredSelection) favouritesViewer.getSelection();
 		}
@@ -541,12 +548,65 @@ public class EMediaView extends ViewPart {
 		final List<File> selectedFiles = getSelectedFiles(structuredSelection);
 		boolean singleSelection = structuredSelection.size() == 1;
 		
-		EnqueSelectedFilesAction playFilesAction  = new EnqueSelectedFilesAction(selectedFiles, true);
-		EnqueSelectedFilesAction enequeFilesAction  = new EnqueSelectedFilesAction(selectedFiles, false);
-		manager.add(playFilesAction);
-		manager.add(enequeFilesAction);
+		
+		if (isPlayListMenu) {
 
+			if (structuredSelection.size() == 1) {
+				manager.add(playFileAction);
+			}
+			manager.add(addToPlaylistAction);
+
+			final String clipboardURL = getClipboardURL();
+			if (clipboardURL != null && (MediaLibrary.isWebUrl(clipboardURL))) {
+				manager.add(new Action("Play Clipboard URL") {
+					@Override
+					public void run() {
+						mediaPlayer.addToPlayList(clipboardURL, true);
+						mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
+					}
+				});
+			}
+
+			manager.add(new Separator());
+
+			if (!structuredSelection.isEmpty()) {
+				manager.add(removeFromPlaylistAction);
+			}
+
+			if (playListViewer.getTable().getItemCount() != 0) {
+				manager.add(clearPlayListAction);
+			}
+			manager.add(new Separator());
+
+		}
+		
+		if (!isPlayListMenu) {
+			EnqueSelectedFilesAction playFilesAction  = new EnqueSelectedFilesAction(selectedFiles, true);
+			EnqueSelectedFilesAction enequeFilesAction  = new EnqueSelectedFilesAction(selectedFiles, false);
+			manager.add(playFilesAction);
+			manager.add(enequeFilesAction);
+			manager.add(new Separator());
+		}
+		
+		AddToFavAction addFavAction = new AddToFavAction(selectedFiles);
+		if (addFavAction.isEnabled()) {
+			manager.add(addFavAction);
+		}
+
+		RemoveFromFavAction removeFavAction = new RemoveFromFavAction(selectedFiles);
+		if (removeFavAction.isEnabled()) {
+			manager.add(removeFavAction);
+		}
 		manager.add(new Separator());
+
+        if (isPlayListMenu) {
+        	repeatAction.setChecked(mediaPlayer.isRepeat());
+        	manager.add(repeatAction);
+        	shuffleAction.setChecked(mediaPlayer.isShuffle());
+        	manager.add(shuffleAction);
+        	manager.add(new Separator());
+        }
+		
 		
 		final List<File> files2Delete = new ArrayList<File>();
 		for (File file : selectedFiles) {
@@ -592,37 +652,76 @@ public class EMediaView extends ViewPart {
 		}
 		
 		
-		AddToFavAction addFavAction = new AddToFavAction(selectedFiles);
-		if (addFavAction.isEnabled()) {
-			manager.add(addFavAction);
-		}
-		RemoveFromFavAction removeFavAction = new RemoveFromFavAction(selectedFiles);
-		if (removeFavAction.isEnabled()) {
-			manager.add(removeFavAction);
-		}
-		manager.add(new Separator());
-		
-		if (!isLibraryMenu) {
+		if (!isLibraryMenu && !isPlayListMenu) {
 			manager.add(syncFavouritesAction);
 			manager.add(new Separator());
 		}
 
-
 		if (singleSelection) {
-			manager.add(new Action("Open Location") {
-				@Override
-				public void run() {
-					File file = selectedFiles.get(0);
-					try {
-						Desktop.getDesktop().browse(file.getParentFile().toURI());
-					} catch (IOException e) {
-						EMediaPlayerActivator.getDefault().logException(e);
-					}
-				}
-			});
+			OpenFileLocationAction openFileLocationAction = new OpenFileLocationAction(selectedFiles);
+			OpenSharedFileLocationAction openSharedFileLocationAction = new OpenSharedFileLocationAction(selectedFiles);
+			if (openFileLocationAction.isEnabled()) {
+				manager.add(openFileLocationAction);
+			}
+			if (openSharedFileLocationAction.isEnabled()) {
+				manager.add(openSharedFileLocationAction);
+			}
 			manager.add(new Separator());
 		}
 
+	}
+	
+	private class OpenFileLocationAction extends Action {
+		private File file;
+
+		public OpenFileLocationAction(List<File> selectedFiles) {
+			super("Open File Location");
+			for (File file : selectedFiles) {
+				if (mediaLibrary.isLocalFile(file)) {
+					this.file = file;
+					break;
+				}
+			}
+		}
+
+		public void run() {
+			try {
+				Desktop.getDesktop().browse(file.getParentFile().toURI());
+			} catch (IOException e) {
+				showAndLogError(getText(), "Failed to open location: " + file.getParentFile().getAbsolutePath(), e);
+			}
+		}
+
+		@Override
+		public boolean isEnabled() {
+			return file != null;
+		}
+	}
+	private class OpenSharedFileLocationAction extends Action {
+		private File file;
+
+		public OpenSharedFileLocationAction(List<File> selectedFiles) {
+			super("Open Shared File Location");
+			for (File file : selectedFiles) {
+				if (mediaLibrary.isRemoteFile(file)) {
+					this.file = file;
+					break;
+				}
+			}
+		}
+
+		public void run() {
+			try {
+				Desktop.getDesktop().browse(file.getParentFile().toURI());
+			} catch (IOException e) {
+				showAndLogError(getText(), "Failed to open shared location: "  + file.getParentFile().getAbsolutePath(), e);
+			}
+		}
+		
+		@Override
+		public boolean isEnabled() {
+			return file != null;
+		}
 	}
 	
 	private class ShareFilesURLAction extends Action {
@@ -684,11 +783,13 @@ public class EMediaView extends ViewPart {
 		}
 	}
 	
+	
+	
 	private class ShareFilesAction extends Action {
 		private List<File> files2Share = new ArrayList<File>();
 
 		public ShareFilesAction(List<File> selectedFiles) {
-			super("Share");
+			super(SHARE_LABEL);
 			for (File file : selectedFiles) {
 				if (mediaLibrary.isRemoteShareRequired(file)) {
 					files2Share.add(file);
@@ -844,7 +945,7 @@ public class EMediaView extends ViewPart {
 			try {
 				favouritesRepository.saveRemoteFavourites();
 			} catch (Exception e) {
-				EMediaPlayerActivator.getDefault().logException(e);
+				showAndLogError(getName(), "Failed to share local favourites to repository", e);
 			}
 			return Status.OK_STATUS;
 		}
@@ -864,13 +965,13 @@ public class EMediaView extends ViewPart {
 
 		public void run() {
 			int i = 0;
-			for (File file : favFiles) {
-				i++;
-				try {
+			try {
+				for (File file : favFiles) {
+					i++;
 					favouritesRepository.addToFavourites(file, i == favFiles.size());
-				} catch (Exception e) {
-					EMediaPlayerActivator.getDefault().logException(e);
 				}
+			} catch (Exception e) {
+				showAndLogError(getText(), "Failed to add to favourites", e);
 			}
 			shareFavouritesJob.schedule();
 		}
@@ -895,13 +996,13 @@ public class EMediaView extends ViewPart {
 		
 		public void run() {
 			int i = 0;
-			for (File file : favFiles) {
-				i++;
-				try {
+			try {
+				for (File file : favFiles) {
+					i++;
 					favouritesRepository.removeFromFavourites(file, i == favFiles.size());
-				} catch (Exception e) {
-					EMediaPlayerActivator.getDefault().logException(e);
 				}
+			} catch (Exception e) {
+				showAndLogError(getText(), "Failed to remove from favourites", e);
 			}
 			shareFavouritesJob.schedule();
 		}
@@ -936,7 +1037,7 @@ public class EMediaView extends ViewPart {
 
 		Button addButton = new Button(buttonsComposite, SWT.PUSH);
 		addButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_ADD));
-		addButton.setToolTipText("Add To Library");
+		addButton.setToolTipText(ADD_TO_LIBRARY_LABEL);
 		addButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
 				importFiles(true);
@@ -973,8 +1074,8 @@ public class EMediaView extends ViewPart {
 			@Override
 			protected IStatus run(IProgressMonitor monitor) {
 				int i = 0;
-				for (File file : files2Download) {
-					try {
+				try {
+					for (File file : files2Download) {
 						i++;
 						final boolean isLocal = mediaLibrary.isLocalFile(file);
 						if (!isLocal && !mediaLibrary.isRemoteLocal()) {
@@ -985,16 +1086,9 @@ public class EMediaView extends ViewPart {
 						if (addToPlayList) {
 							mediaPlayer.addToPlayList(localFile.getAbsolutePath(), play && i == 1);
 						}
-					} catch (Exception e) {
-						EMediaPlayerActivator.getDefault().logException(e);
-						Display.getDefault().asyncExec(new Runnable() {
-							@Override
-							public void run() {
-								MessageDialog.openError(Display.getDefault().getActiveShell(), "Failed", "Failed to play file. See logs for details");
-							}
-						});
-
 					}
+				} catch (Exception e) {
+					showAndLogError("Failed Operation", "Failed to download files from repository", e);
 				}
 				return Status.OK_STATUS;
 			}
@@ -1016,7 +1110,7 @@ public class EMediaView extends ViewPart {
 				try {
 					mediaLibrary.addToRemoteRepository(file);
 				} catch (Exception e) {
-					EMediaPlayerActivator.getDefault().logException(e);
+					showAndLogError(SHARE_LABEL, "Failed to share files to remote repository", e);
 				}
 			}
 			return Status.OK_STATUS;
@@ -1260,7 +1354,7 @@ public class EMediaView extends ViewPart {
 		menuMgr.setRemoveAllWhenShown(true);
 		menuMgr.addMenuListener(new IMenuListener() {
 			public void menuAboutToShow(IMenuManager manager) {
-				fillPlaylistContextMenu(manager);
+				fillContextMenu(manager, false, true);
 			}
 		});
 		Menu menu = menuMgr.createContextMenu(playListViewer.getControl());
@@ -1269,85 +1363,6 @@ public class EMediaView extends ViewPart {
 
 	}
 
-	private void fillPlaylistContextMenu(IMenuManager manager) {
-		final IStructuredSelection structuredSelection = (IStructuredSelection) playListViewer.getSelection();
-		if (structuredSelection.size() == 1) {
-			manager.add(playFileAction);
-		}
-		manager.add(addToPlaylistAction);
-
-		final String clipboardURL = getClipboardURL();
-		if (clipboardURL != null && (MediaLibrary.isWebUrl(clipboardURL))) {
-			manager.add(new Action("Play Clipboard URL") {
-				@Override
-				public void run() {
-					mediaPlayer.addToPlayList(clipboardURL, true);
-					mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
-				}
-			});
-		}
-
-		manager.add(new Separator());
-		
-		if (!structuredSelection.isEmpty()) {
-			manager.add(removeFromPlaylistAction);
-		}
-
-		if (playListViewer.getTable().getItemCount() != 0) {
-			manager.add(clearPlayListAction);
-		}
-		manager.add(new Separator());
-		
-		final List<File> selectedFiles = getSelectedFiles(structuredSelection);
-		
-		AddToFavAction addFavAction = new AddToFavAction(selectedFiles);
-		if (addFavAction.isEnabled()) {
-			manager.add(addFavAction);
-		}
-
-		RemoveFromFavAction removeFavAction = new RemoveFromFavAction(selectedFiles);
-		if (removeFavAction.isEnabled()) {
-			manager.add(removeFavAction);
-		}
-		manager.add(new Separator());
-
-
-		repeatAction.setChecked(mediaPlayer.isRepeat());
-		manager.add(repeatAction);
-		shuffleAction.setChecked(mediaPlayer.isShuffle());
-		manager.add(shuffleAction);
-		manager.add(new Separator());
-
-		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
-		if (shareFilesAction.isEnabled()) {
-			manager.add(shareFilesAction);
-		}
-		ShareFilesURLAction shareFilesURLAction = new ShareFilesURLAction(selectedFiles);
-		if (shareFilesURLAction.isEnabled()) {
-			manager.add(shareFilesURLAction);
-		}
-		
-		if (shareFilesAction.isEnabled() || shareFilesURLAction.isEnabled()) {
-			manager.add(new Separator());
-		}
-
-		
-
-		if (structuredSelection.size() == 1 && !((MediaFile) structuredSelection.getFirstElement()).isWebUrl()) {
-			manager.add(new Action("Open Location") {
-				public void run() {
-					MediaFile mediaFile = (MediaFile) structuredSelection.getFirstElement();
-					try {
-						Desktop.getDesktop().browse(new File(mediaFile.getUrl()).getParentFile().toURI());
-					} catch (IOException e) {
-						EMediaPlayerActivator.getDefault().logException(e);
-					}
-				};
-			});
-			manager.add(new Separator());
-		}
-
-	}
 
 	Action repeatAction = new Action("Repeat") {
 		public void run() {
@@ -1379,7 +1394,8 @@ public class EMediaView extends ViewPart {
 			try {
 				mediaPlayer.savePlaylist();
 			} catch (IOException e) {
-				EMediaPlayerActivator.getDefault().logException(e);
+				showAndLogError(getText(), "Failed to save playlist", e);
+
 			}
 		};
 	};
@@ -1446,7 +1462,7 @@ public class EMediaView extends ViewPart {
 							mediaLibrary.addToLocalRepository(new File(fileURL));
 						}
 					} catch (Exception e) {
-						EMediaPlayerActivator.getDefault().logException(e);
+						showAndLogError(ADD_TO_LIBRARY_LABEL, "Failed to add files to library", e);
 					}
 				} else {
 					mediaPlayer.addToPlayList(fileURL, mediaPlayer.getPlayList().size() == 0);
@@ -1679,6 +1695,16 @@ public class EMediaView extends ViewPart {
 	@Override
 	public void dispose() {
 		super.dispose();
+	}
+	
+	public static void showAndLogError(String title, String message, Exception e) {
+	    if (message == null) {
+	    	message = e.getMessage();
+	    } else {
+	    	message = message + ". Reason: " + e.getMessage();
+	    }
+	    EMediaPlayerActivator.getDefault().logException(message, e);
+		EventNotifier.notifyError(title, message, EventNotifier.showViewRunnable("org.eclipse.pde.runtime.LogView"));
 	}
 
 }

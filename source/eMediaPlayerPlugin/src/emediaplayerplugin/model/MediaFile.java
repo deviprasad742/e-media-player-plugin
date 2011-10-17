@@ -52,7 +52,7 @@ public class MediaFile extends MediaModelObject implements IAdaptable {
 
 	@Override
 	public Object getAdapter(@SuppressWarnings("rawtypes") Class adapter) {
-		if (adapter.equals(File.class)) {
+		if (adapter.equals(File.class) && !isWebUrl()) {
 			return new File(url);
 		}
 		return null;

@@ -13,6 +13,7 @@ import org.eclipse.swt.ole.win32.Variant;
 import org.eclipse.swt.widgets.Display;
 
 import emediaplayerplugin.EMediaPlayerActivator;
+import emediaplayerplugin.ui.EMediaView;
 
 /**
  * 
@@ -77,6 +78,7 @@ public class MediaPlayer extends MediaModelObject {
 				setRepeat(Boolean.valueOf(properties.getProperty(LOOP)));
 				setShuffle(Boolean.valueOf(properties.getProperty(SHUFFLE)));
 			} catch (Exception e) {
+				EMediaView.showAndLogError("Load Setting", "Failed to load playlist settings", e);
 				EMediaPlayerActivator.getDefault().logException(e);
 			}
 		}
