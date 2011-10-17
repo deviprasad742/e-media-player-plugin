@@ -193,6 +193,7 @@ public class FavouritesRepository {
 				properties.put(entry.getKey(), value.getFile().getAbsolutePath());
 			}
 		}
+		localFile.getParentFile().mkdirs();
 		properties.store(new FileWriter(localFile), null);
 
 	}
@@ -251,6 +252,7 @@ public class FavouritesRepository {
 					remoteProperties.put(key, object);
 				}
 			}
+			remoteFile.getParentFile().mkdirs();
 			remoteProperties.store(new FileWriter(remoteFile), null);
 			
 			Properties members = new Properties();
