@@ -25,6 +25,7 @@ import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.layout.GridDataFactory;
 import org.eclipse.jface.layout.GridLayoutFactory;
+import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.CellLabelProvider;
@@ -671,7 +672,6 @@ public class EMediaView extends ViewPart {
 							}
 						};
 						safelyRunInUI(runnable);
-
 					}
 				}
 			});
@@ -753,7 +753,7 @@ public class EMediaView extends ViewPart {
 	private class PlayURLFilesAction extends Action {
 
 		public PlayURLFilesAction() {
-			setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_OBJ_ADD));
+			setImageDescriptor(ImageDescriptor.createFromImage(EMediaConstants.IMAGE_PLAY_URL));
 			setText("Play URL");
 			setToolTipText("Plays files present in the clipboard if it represents a valid url");
 		}
@@ -780,6 +780,7 @@ public class EMediaView extends ViewPart {
 				syncJob.addJobChangeListener(new JobChangeAdapter() {
 					public void done(IJobChangeEvent event) {
                         downloadAndPlayFiles(fileKeys);
+                        syncJob.removeJobChangeListener(this);
 					};
 				});
 				syncJob.schedule();
@@ -815,8 +816,8 @@ public class EMediaView extends ViewPart {
 				String shareUrl = contents.toString();
 				int index;
 				if ((index = shareUrl.indexOf(EMediaConstants.EMEDIA_SHARED_URL)) != -1) {
-					int beginIndex = index + EMediaConstants.EMEDIA_SHARED_URL.length() + 1;
-					if (beginIndex < shareUrl.length()) {
+					int beginIndex = index + EMediaConstants.EMEDIA_SHARED_URL.length();
+					if (beginIndex <= shareUrl.length()) {
 						String string = shareUrl.substring(beginIndex);
 						String[] keys = string.split(EMediaConstants.SEPARATOR);
 						return keys;
