@@ -17,7 +17,7 @@ import org.eclipse.swt.widgets.Text;
 
 import emediaplayerplugin.EMediaPlayerActivator;
 
-public class LibraryPathsDialog extends Dialog {
+public class EMediaPreferencesDialog extends Dialog {
 	private static final String DEFAULT_LOCAL_PATH = "C:\\EMediaPlayerPlugin\\local";
 	private static final String DEFAULT_REMOTE_PATH = "C:\\EMediaPlayerPlugin\\remote";
 
@@ -26,24 +26,35 @@ public class LibraryPathsDialog extends Dialog {
 
 	private String local;
 	private String remote;
+	private String userName;
 	private Text localText;
 	private Text remoteText;
+	private Text userNameText;
 
-	public LibraryPathsDialog(String local, String remote) {
+	public EMediaPreferencesDialog(String local, String remote, String userName) {
 		super(Display.getDefault().getActiveShell());
 		this.local = local;
 		this.remote = remote;
+		this.userName = userName;
 		setShellStyle(getShellStyle() | SWT.RESIZE);
 	}
 
 	@Override
 	protected Control createDialogArea(Composite parent) {
-		getShell().setText("Library Paths");
+		getShell().setText("Preferences");
 		Composite container = new Composite(parent, SWT.NONE);
 		GridDataFactory.fillDefaults().grab(true, false).span(400, SWT.DEFAULT).applyTo(container);
 		GridLayoutFactory.fillDefaults().numColumns(3).margins(5, 5).applyTo(container);
 		localText = createRow(container, "Local: ", local);
 		remoteText = createRow(container, "Remote: ", remote);
+		
+		Label label = new Label(container, SWT.NONE);
+		label.setText("User: ");
+		GridDataFactory.swtDefaults().applyTo(label);
+		userNameText = new Text(container, SWT.BORDER);
+		userNameText.setText(userName);
+		GridDataFactory.fillDefaults().grab(true, false).span(2, 1).applyTo(userNameText);
+		
 		return container;
 	}
 
@@ -77,6 +88,7 @@ public class LibraryPathsDialog extends Dialog {
 	protected void okPressed() {
 		local = localText.getText();
 		remote = remoteText.getText();
+		userName = userNameText.getText();
 		IDialogSettings dialogSettings = EMediaPlayerActivator.getDefault().getDialogSettings();
 		dialogSettings.put(LOCAL_PATH, local);
 		dialogSettings.put(REMOTE_PATH, remote);
@@ -89,6 +101,10 @@ public class LibraryPathsDialog extends Dialog {
 
 	public String getRemote() {
 		return remote;
+	}
+	
+	public String getUserName() {
+		return userName;
 	}
 
 	public static String getLocalPath() {
