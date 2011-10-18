@@ -38,11 +38,23 @@ public class FavMedia implements IAdaptable {
 	}
 	
 	public static String getFolderName(String key) {
-		return key.substring(0, key.lastIndexOf(File.separator));
+		String folderName;
+		try {
+			folderName = key.substring(0, key.lastIndexOf(File.separator));
+		} catch (ArrayIndexOutOfBoundsException e) {
+			return null;
+		}
+		return folderName;
 	}
 	
 	public static String getFileName(String key) {
-		return  key.substring(key.lastIndexOf(File.separator) + 1);
+		String fileName;
+		try {
+			fileName = key.substring(key.lastIndexOf(File.separator) + 1);
+		} catch (ArrayIndexOutOfBoundsException e) {
+			return null;
+		}
+		return  fileName;
 	}
 	
 	public static String getKey(File file) {
