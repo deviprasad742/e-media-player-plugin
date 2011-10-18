@@ -714,7 +714,7 @@ public class EMediaView extends ViewPart {
 			super("Open Shared File Location");
 			for (File file : selectedFiles) {
 				if (mediaLibrary.isRemoteFile(file)) {
-					this.file = file;
+					this.file = mediaLibrary.getRemoteFile(file.getParentFile().getName(), file.getName());
 					break;
 				}
 			}
@@ -722,8 +722,8 @@ public class EMediaView extends ViewPart {
 
 		public void run() {
 			try {
-				Desktop.getDesktop().browse(file.getParentFile().toURI());
-			} catch (IOException e) {
+				PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(file.getParentFile().toURI().toURL());
+			} catch (Exception e) {
 				showAndLogError(getText(), "Failed to open shared location: "  + file.getParentFile().getAbsolutePath(), e);
 			}
 		}
@@ -1092,7 +1092,7 @@ public class EMediaView extends ViewPart {
 							monitor.beginTask("Downloading files from shared library", IProgressMonitor.UNKNOWN);
 						}
 
-						File localFile = mediaLibrary.getLocalFile(file);
+						File localFile = mediaLibrary.downloadLocalFile(file, files2Download.size() == i);
 						if (addToPlayList) {
 							mediaPlayer.addToPlayList(localFile.getAbsolutePath(), play && i == 1);
 						}
@@ -1116,9 +1116,11 @@ public class EMediaView extends ViewPart {
 
 		@Override
 		protected IStatus run(IProgressMonitor monitor) {
+			int i = 0;
 			for (File file : files) {
+				i++;
 				try {
-					mediaLibrary.addToRemoteRepository(file);
+					mediaLibrary.addToRemoteRepository(file, i == files.size());
 				} catch (Exception e) {
 					showAndLogError(SHARE_LABEL, "Failed to share files to remote repository", e);
 				}
@@ -1469,7 +1471,7 @@ public class EMediaView extends ViewPart {
 				if (library) {
 					try {
 						if (!mediaLibrary.isPicture(fileURL)) {
-							mediaLibrary.addToLocalRepository(new File(fileURL));
+							mediaLibrary.addToLocalRepository(new File(fileURL), true);
 						}
 					} catch (Exception e) {
 						showAndLogError(ADD_TO_LIBRARY_LABEL, "Failed to add files to library", e);

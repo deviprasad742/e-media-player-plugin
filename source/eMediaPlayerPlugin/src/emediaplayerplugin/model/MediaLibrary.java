@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -21,7 +22,7 @@ import java.util.Set;
 /**
  * 
  * @author Prasad
- *
+ * 
  */
 
 public class MediaLibrary {
@@ -29,21 +30,20 @@ public class MediaLibrary {
 	private boolean isRemoteLocal;
 	private File local;
 	private File remote;
-	private Map<String, Map<File, String>> localLib = new HashMap<String, Map<File, String>>();
-	private Map<String, Map<File, String>> remoteLib = new HashMap<String, Map<File, String>>();
-	private Map<String, List<File>> musicMap = new HashMap<String, List<File>>();
-	
+	private Map<String, Map<File, String>> localLib = Collections.synchronizedMap(new HashMap<String, Map<File, String>>());
+	private Map<String, Map<File, String>> remoteLib = Collections.synchronizedMap(new HashMap<String, Map<File, String>>());
+	private Map<String, List<File>> musicMap = Collections.synchronizedMap(new HashMap<String, List<File>>());
 
 	public MediaLibrary(String local, String remote) {
 		setLocal(local);
 		setRemote(remote);
 	}
 
-	public synchronized void setLocal(String local) {
+	public void setLocal(String local) {
 		this.local = new File(local);
 	}
 
-	public synchronized void setRemote(String remote) {
+	public void setRemote(String remote) {
 		isRemoteLocal = !remote.startsWith("\\\\");
 		isRemoteLocal = false;
 		this.remote = new File(remote);
@@ -78,7 +78,7 @@ public class MediaLibrary {
 	}
 
 	private void populateFiles(Map<String, Map<File, String>> localLib, File root) {
-		if(!root.exists()) {
+		if (!root.exists()) {
 			return;
 		}
 		Queue<File> files = new LinkedList<File>();
@@ -91,7 +91,7 @@ public class MediaLibrary {
 			if (songs.length > 0) {
 				Map<File, String> map = localLib.get(current.getName());
 				if (map == null) {
-					map = new HashMap<File, String>();
+					map = Collections.synchronizedMap(new HashMap<File, String>());
 					localLib.put(current.getName(), map);
 				}
 				for (File file : songs) {
@@ -124,14 +124,14 @@ public class MediaLibrary {
 	};
 	private IListener listener;
 
-	public synchronized Collection<String> getFolders() {
+	public Collection<String> getFolders() {
 		Set<String> folders = new HashSet<String>();
 		folders.addAll(localLib.keySet());
 		folders.addAll(remoteLib.keySet());
 		return folders;
 	}
 
-	public synchronized Collection<File> getMusicFiles(String folderName) {
+	public Collection<File> getMusicFiles(String folderName) {
 		List<File> songs = musicMap.get(folderName);
 		if (songs == null) {
 			songs = new ArrayList<File>();
@@ -154,15 +154,14 @@ public class MediaLibrary {
 		return songs;
 	}
 
-	
-	public synchronized File getLocalFile(File remoteFile) throws Exception {
+	public File downloadLocalFile(File remoteFile, boolean notify) throws Exception {
 		if (!isLocalFile(remoteFile)) {
 			if (isRemoteLocal) {
 				// return same file if remote is a local folder
 				return remoteFile;
 			}
-			
-			addToLocalRepository(remoteFile);
+
+			addToLocalRepository(remoteFile, notify);
 		}
 		File localFile = getLocalFile(remoteFile.getParentFile().getName(), remoteFile.getName());
 		if (localFile != null) {
@@ -170,18 +169,28 @@ public class MediaLibrary {
 		}
 		throw new RuntimeException("Something went wrong");
 	}
+
+	public File getLocalFile(String folder, String fileName) {
+		return getFile(folder, fileName, localLib);
+	}	
 	
-	public synchronized File getLocalFile(String folder, String fileName) {
-		Map<File, String> songs = localLib.get(folder);
-		for (Entry<File, String> entry : songs.entrySet()) {
-			if (entry.getValue().equals(fileName)) {
-				return entry.getKey();
+	public File getRemoteFile(String folder, String fileName) {
+		return getFile(folder, fileName, remoteLib);
+	}
+	
+	private File getFile(String folder, String fileName, Map<String, Map<File, String>> lib) {
+		Map<File, String> songs = lib.get(folder);
+		if (songs != null) {
+			for (Entry<File, String> entry : songs.entrySet()) {
+				if (entry.getValue().equals(fileName)) {
+					return entry.getKey();
+				}
 			}
 		}
 		return null;
 	}
-	
-	public synchronized File getFile(String folder, String fileName) {
+
+	public File getFile(String folder, String fileName) {
 		Collection<File> files = getMusicFiles(folder);
 		for (File file : files) {
 			if (file.getName().equals(fileName)) {
@@ -190,22 +199,22 @@ public class MediaLibrary {
 		}
 		return null;
 	}
-	
-	public synchronized boolean isLocalFile(File file) {
+
+	public boolean isLocalFile(File file) {
 		Map<File, String> files = localLib.get(file.getParentFile().getName());
 		return files != null && files.containsValue(file.getName());
 	}
-	
-	public synchronized boolean isRemoteFile(File file) {
+
+	public boolean isRemoteFile(File file) {
 		Map<File, String> files = remoteLib.get(file.getParentFile().getName());
 		return files != null && files.containsValue(file.getName());
 	}
 
-	public synchronized boolean isLocalFolder(String folderName) {
+	public boolean isLocalFolder(String folderName) {
 		return localLib.containsKey(folderName);
 	}
 
-	public synchronized boolean isRemoteShareRequired(File file) {
+	public boolean isRemoteShareRequired(File file) {
 		if (!isRemoteLocal) {
 			Map<File, String> files = remoteLib.get(file.getParentFile().getName());
 			if (files != null) {
@@ -218,28 +227,28 @@ public class MediaLibrary {
 		return false;
 	}
 
-	public synchronized void addToLocalRepository(File remote) throws Exception {
+	public void addToLocalRepository(File remote, boolean notify) throws Exception {
 		// check before adding
 		if (!isLocalFile(remote)) {
-			writeToRepository(local, localLib, remote);
+			writeToRepository(local, localLib, remote, notify);
 		}
 	}
 
-	public synchronized void addToRemoteRepository(File local) throws Exception {
+	public void addToRemoteRepository(File local, boolean notify) throws Exception {
 		if (isRemoteShareRequired(local)) {
-			writeToRepository(remote, remoteLib, local);
+			writeToRepository(remote, remoteLib, local, notify);
 		}
 	}
 
-	private void writeToRepository(File root, Map<String, Map<File, String>> lib, File file2Copy) throws Exception {
+	private void writeToRepository(File root, Map<String, Map<File, String>> lib, File file2Copy, boolean notify) throws Exception {
 		String key = file2Copy.getParentFile().getName();
 		Map<File, String> filesMap = lib.get(key);
-		String repoRelativeFolderPath = EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator + key;		
+		String repoRelativeFolderPath = EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator + key;
 		if (filesMap != null) {
 			File firstFile = null;
 			for (Entry<File, String> entry : filesMap.entrySet()) {
-			    firstFile = entry.getKey();
-			    break;
+				firstFile = entry.getKey();
+				break;
 			}
 			if (firstFile != null) {
 				String parentPath = firstFile.getParentFile().getAbsolutePath();
@@ -247,7 +256,7 @@ public class MediaLibrary {
 				repoRelativeFolderPath = parentPath.substring(parentPath.indexOf(rootPath) + rootPath.length());
 			}
 		}
-        File destination = new File(root, repoRelativeFolderPath + File.separator + file2Copy.getName());
+		File destination = new File(root, repoRelativeFolderPath + File.separator + file2Copy.getName());
 		destination.getParentFile().mkdirs();
 		InputStream in = null;
 		OutputStream out = null;
@@ -262,42 +271,43 @@ public class MediaLibrary {
 		} finally {
 			if (in != null) {
 				in.close();
-			} 
+			}
 			if (out != null) {
 				out.close();
 			}
 		}
 
 		if (filesMap == null) {
-			filesMap = new HashMap<File, String>();
+			filesMap = Collections.synchronizedMap(new HashMap<File, String>());
 			lib.put(key, filesMap);
 		}
 		filesMap.put(destination, destination.getName());
 		musicMap.remove(destination.getParentFile().getName());
-		notifyListener();
+		if (notify) {
+			notifyListener();
+		}
 	}
-	
+
 	public String getLocalPath() {
 		return local.getAbsolutePath();
 	}
-	
+
 	public String getRemotePath() {
 		return remote.getAbsolutePath();
 	}
-	
+
 	public boolean isRemoteLocal() {
 		return isRemoteLocal;
 	}
-	
+
 	public boolean isPicture(String url) {
 		return url.endsWith(EMediaConstants.EXT_JPEG) || url.endsWith(EMediaConstants.EXT_JPG);
 	}
-	
+
 	public static boolean isWebUrl(String url) {
 		return url.startsWith("http://");
 	}
-	
-	
+
 	public ElementType getElementType(Object element) {
 		if (element instanceof File) {
 			File file = (File) element;
@@ -327,11 +337,11 @@ public class MediaLibrary {
 		String parent = file.getParentFile().getName();
 		return lib.get(parent) != null && lib.get(parent).containsValue(file.getName());
 	}
-	
+
 	public void setListener(IListener listener) {
 		this.listener = listener;
 	}
-	
+
 	private void notifyListener() {
 		if (listener != null) {
 			listener.handleEvent(IListener.EVENT_DEFAULT);
@@ -357,6 +367,5 @@ public class MediaLibrary {
 		}
 		notifyListener();
 	}
-	
-	
+
 }

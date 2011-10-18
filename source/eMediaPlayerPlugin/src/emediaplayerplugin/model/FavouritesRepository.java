@@ -10,6 +10,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,11 +25,11 @@ public class FavouritesRepository {
 	private static final String LOCK_FILE = "lock.jalf";
 
 	private String remoteSettingsPath;
-	private Map<String, FavMedia> favMediaMap = new HashMap<String, FavMedia>();
+	private Map<String, FavMedia> favMediaMap = Collections.synchronizedMap(new HashMap<String, FavMedia>());
 	private String userName;
 	private String macAddress;
 
-	private Map<String, String> memberNamesMap = new HashMap<String, String>();
+	private Map<String, String> memberNamesMap = Collections.synchronizedMap(new HashMap<String, String>());
 	private IListener listener;
 	private MediaLibrary mediaLibrary;
 	private File membersFile;
@@ -46,14 +47,15 @@ public class FavouritesRepository {
 		this.remoteSettingsPath = remoteURL + File.separator + EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator;
 	}
 
-	public synchronized void syncRepositories() throws Exception {
-		favMediaMap.clear();
-		memberNamesMap.clear();
+	public void syncRepositories() throws Exception {
+		Map<String, FavMedia> favMediaMap = new HashMap<String, FavMedia>();
+		Map<String, String> memberNamesMap = new HashMap<String, String>();
+
 		localFile = new File(EMediaConstants.LOCAL_SETTINGS_PATH + FAVOURITES_FILE);
 		if (!localFile.getParentFile().exists()) {
 			boolean mkdirs = localFile.getParentFile().mkdirs();
 			if (!mkdirs) {
-				localFile = new File(EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH + FAVOURITES_FILE); 
+				localFile = new File(EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH + FAVOURITES_FILE);
 			}
 		}
 		remoteFile = new File(remoteSettingsPath + FAVOURITES_FILE);
@@ -116,11 +118,15 @@ public class FavouritesRepository {
 
 			}
 		}
+		this.favMediaMap.clear();
+		this.memberNamesMap.clear();
+		this.favMediaMap.putAll(favMediaMap);
+		this.memberNamesMap.putAll(memberNamesMap);
 		saveAllFavourites();
 		notifyListener();
 	}
 
-	public synchronized void addToFavourites(File file, boolean update) throws Exception {
+	public void addToFavourites(File file, boolean update) throws Exception {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		if (favMedia == null) {
@@ -134,14 +140,14 @@ public class FavouritesRepository {
 		}
 	}
 
-	public synchronized void removeFromFavourites(File file, boolean update) throws Exception {
+	public void removeFromFavourites(File file, boolean update) throws Exception {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		favMedia.getMembers().remove(EMediaConstants.FAV_MEMBER_LOCAL);
 		// donot remove as we have to update remote repo
-//		if (!favMedia.isValid()) {
-//			favMediaMap.remove(key);
-//		}
+		//		if (!favMedia.isValid()) {
+		//			favMediaMap.remove(key);
+		//		}
 		if (update) {
 			saveLocalFavourites();
 			notifyListener();
@@ -158,17 +164,17 @@ public class FavouritesRepository {
 		}
 		return filtered;
 	}
-	
+
 	public boolean isLocalFavMedia(String fileURL) {
 		FavMedia favMedia = getFavMedia(fileURL);
 		return favMedia != null && favMedia.isLocal();
 	}
-	
+
 	public boolean isFavMedia(String fileURL) {
 		FavMedia favMedia = getFavMedia(fileURL);
 		return favMedia != null && favMedia.isValid();
 	}
-	
+
 	public FavMedia getFavMedia(String fileURL) {
 		File file = new File(fileURL);
 		FavMedia favMedia = favMediaMap.get(FavMedia.getKey(file));
@@ -190,7 +196,7 @@ public class FavouritesRepository {
 		saveRemoteFavourites();
 	}
 
-	public synchronized void saveLocalFavourites() throws Exception {
+	public void saveLocalFavourites() throws Exception {
 		Set<Entry<String, FavMedia>> entrySet = favMediaMap.entrySet();
 		Properties properties = new Properties();
 		for (Entry<String, FavMedia> entry : entrySet) {
@@ -204,7 +210,7 @@ public class FavouritesRepository {
 
 	}
 
-	public synchronized void saveRemoteFavourites() throws Exception {
+	public void saveRemoteFavourites() throws Exception {
 		FileChannel channel = null;
 		try {
 			File file = new File(remoteSettingsPath + LOCK_FILE);
@@ -260,14 +266,14 @@ public class FavouritesRepository {
 			}
 			remoteFile.getParentFile().mkdirs();
 			remoteProperties.store(new FileWriter(remoteFile), null);
-			
+
 			Properties members = new Properties();
 			if (membersFile.exists()) {
 				members.load(new FileReader(membersFile));
 			}
 			members.put(macAddress, userName);
 			members.store(new FileWriter(membersFile), null);
-			
+
 			lock.release();
 		} finally {
 			if (channel != null) {
@@ -292,7 +298,7 @@ public class FavouritesRepository {
 					sb.append(String.format("%02X%s", macBytes[k], (k < macBytes.length - 1) ? "-" : ""));
 				}
 				macAddress = sb.toString();
-				
+
 			} catch (Exception e) {
 			}
 		}
