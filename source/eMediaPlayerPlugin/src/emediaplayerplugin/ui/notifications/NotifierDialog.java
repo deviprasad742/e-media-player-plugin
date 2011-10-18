@@ -124,7 +124,7 @@ public class NotifierDialog {
 			titleLabel.setForeground(NotificationColorMapper.getFontColor(notificationType));
 			Font tf = titleLabel.getFont();
 			FontData tfd = tf.getFontData()[0];
-			tfd.height = 10;
+			tfd.height = 9;
 			tfd.setStyle(SWT.BOLD);
 			titleLabel.setFont(FontCache.getFont(tfd));
 		}

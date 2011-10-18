@@ -7,6 +7,7 @@ public class MediaControl extends MediaModelObject {
 	public OleAutomation oControl;
 	public static final String PLAY = "play";
 	public static final String PAUSE = "pause";
+	public static final String STOP = "stop";
 	public static final String NEXT = "next";
 	public static final String PREVIOUS = "previous";
 
@@ -26,6 +27,10 @@ public class MediaControl extends MediaModelObject {
 		invoke(oControl, PAUSE);
 	}
 	
+	public void stop() {
+		invoke(oControl, STOP);
+	}
+	
 	public void playNext() {
 		invoke(oControl, NEXT);
 		play();
@@ -40,5 +45,11 @@ public class MediaControl extends MediaModelObject {
 		setProperty(oControl, CURRENT_ITEM, media);
 		play();
 	}
+	
+	@Override
+	public void dispose() {
+		oControl.dispose();
+	}
+	
 	
 }

@@ -160,9 +160,10 @@ public class MediaPlayer extends MediaModelObject {
 	}
 	
 	public void dispose() {
-		oPlayer.dispose();
 		oPlayList.dispose();
+		control.dispose();
 		oSettings.dispose();
+		oPlayer.dispose();
 	}
 	
 	private static final int PLAYING = 3;

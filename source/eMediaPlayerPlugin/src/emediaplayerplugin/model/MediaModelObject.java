@@ -56,4 +56,8 @@ public class MediaModelObject {
 		return auto.setProperty(property(auto, command), values);
 	}
 	
+	public void dispose() {
+		
+	}
+	
 }

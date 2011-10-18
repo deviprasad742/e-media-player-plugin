@@ -120,6 +120,8 @@ public class EMediaView extends ViewPart {
 	private Text musicLibraryFilterText;
 
 	private MediaLibrary mediaLibrary;
+	private boolean confirmClear = true;
+
 
 	private Text favFilterText;
 	private Combo favUsersCombo;
@@ -1277,6 +1279,9 @@ public class EMediaView extends ViewPart {
 			public boolean preShutdown(IWorkbench workbench, boolean forced) {
 				try {
 					mediaPlayer.savePlaylist();
+					mediaPlayer.getControl().stop();
+					confirmClear = false;
+					clearPlayListAction.run();
 					mediaPlayer.dispose();
 				} catch (Exception e) {
 					EMediaPlayerActivator.getDefault().logException(e);
@@ -1426,18 +1431,21 @@ public class EMediaView extends ViewPart {
 	};
 
 	private Action clearPlayListAction = new Action("Clear") {
+
 		public void run() {
 			int count = playListViewer.getTable().getItemCount();
 			if (count > 0) {
-				boolean proceed = MessageDialog.openQuestion(Display.getDefault().getActiveShell(), "Confirm",
-						"Are you sure you want to clear the playlist?");
+				boolean proceed = !confirmClear
+						|| MessageDialog.openQuestion(Display.getDefault().getActiveShell(), "Confirm",
+								"Are you sure you want to clear the playlist?");
 				if (proceed) {
 					while (count > 0) {
 						mediaPlayer.removeItem(--count);
 					}
 				}
 			}
-		};
+		}
+
 	};
 
 	private Action removeFromPlaylistAction = new Action("Remove") {
@@ -1516,7 +1524,9 @@ public class EMediaView extends ViewPart {
 
 					@Override
 					public void run() {
-						playListViewer.refresh();
+						if (!playListViewer.getControl().isDisposed()) {
+							playListViewer.refresh();
+						}
 					}
 				});
 			}
