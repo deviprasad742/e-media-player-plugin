@@ -18,11 +18,15 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
+import emediaplayerplugin.ui.EMediaView;
+
 public class FavouritesRepository {
 	private static final String MAC_SEPARATOR = ",";
 	private static final String FAVOURITES_FILE = "favourites.japf";
 	private static final String MEMBERS_FILE = "members.japf";
 	private static final String LOCK_FILE = "lock.jalf";
+	private static final String SETTINGS_FILE = "settings.jasf";
+
 
 	private String remoteSettingsPath;
 	private Map<String, FavMedia> favMediaMap = Collections.synchronizedMap(new HashMap<String, FavMedia>());
@@ -35,31 +39,27 @@ public class FavouritesRepository {
 	private File membersFile;
 	private File remoteFile;
 	private File localFile;
+	private File settingsFile;
+	private String localSettingsPath = EMediaConstants.LOCAL_SETTINGS_PATH;
 
 	public FavouritesRepository(String remoteURL, MediaLibrary mediaLibrary) {
 		setRemoteSettingsPath(remoteURL);
 		this.mediaLibrary = mediaLibrary;
-		macAddress = getMacAddress();
-		userName = getUserName();
+	    initSettings();
 	}
 
 	public void setRemoteSettingsPath(String remoteURL) {
-		this.remoteSettingsPath = remoteURL + File.separator + EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator;
+		this.remoteSettingsPath = remoteURL + File.separator + EMediaConstants.EMEDIA_SHARED_FOLDER;
 	}
 
 	public void syncRepositories() throws Exception {
 		Map<String, FavMedia> favMediaMap = new HashMap<String, FavMedia>();
 		Map<String, String> memberNamesMap = new HashMap<String, String>();
 
-		localFile = new File(EMediaConstants.LOCAL_SETTINGS_PATH + FAVOURITES_FILE);
-		if (!localFile.getParentFile().exists()) {
-			boolean mkdirs = localFile.getParentFile().mkdirs();
-			if (!mkdirs) {
-				localFile = new File(EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH + FAVOURITES_FILE);
-			}
-		}
-		remoteFile = new File(remoteSettingsPath + FAVOURITES_FILE);
-		membersFile = new File(remoteSettingsPath + MEMBERS_FILE);
+		localFile = new File(localSettingsPath, FAVOURITES_FILE);
+		remoteFile = new File(remoteSettingsPath, FAVOURITES_FILE);
+		membersFile = new File(remoteSettingsPath, MEMBERS_FILE);
+	
 
 		if (localFile.exists()) {
 			Properties localProperties = new Properties();
@@ -72,7 +72,7 @@ public class FavouritesRepository {
 					file = mediaLibrary.getLocalFile(FavMedia.getFolderName(key), FavMedia.getFileName(key));
 				}
 				if (file != null) {
-					FavMedia favMedia = new FavMedia(key, file);
+					FavMedia favMedia = new FavMedia(file);
 					favMedia.getMembers().add(EMediaConstants.FAV_MEMBER_LOCAL);
 					favMediaMap.put(key, favMedia);
 				}
@@ -83,7 +83,12 @@ public class FavouritesRepository {
 			Properties membersMap = new Properties();
 			membersMap.load(new FileReader(membersFile));
 			for (Entry<Object, Object> entry : membersMap.entrySet()) {
-				memberNamesMap.put(entry.getKey().toString(), entry.getValue().toString());
+				String macA = entry.getKey().toString();
+				String userN = entry.getValue().toString();
+				if (macAddress.equals(macA)) {
+					userN = userName;
+				}
+				memberNamesMap.put(macA, userN);
 			}
 		}
 
@@ -96,7 +101,7 @@ public class FavouritesRepository {
 				if (favMedia == null) {
 					File file = mediaLibrary.getFile(FavMedia.getFolderName(key), FavMedia.getFileName(key));
 					if (file != null) {
-						favMedia = new FavMedia(key, file);
+						favMedia = new FavMedia(file);
 						favMediaMap.put(key, favMedia);
 					}
 				}
@@ -130,7 +135,7 @@ public class FavouritesRepository {
 		String key = FavMedia.getKey(file);
 		FavMedia favMedia = favMediaMap.get(key);
 		if (favMedia == null) {
-			favMedia = new FavMedia(key, file);
+			favMedia = new FavMedia(file);
 			favMediaMap.put(key, favMedia);
 		}
 		favMedia.getMembers().add(EMediaConstants.FAV_MEMBER_LOCAL);
@@ -229,7 +234,7 @@ public class FavouritesRepository {
 				if (value.isLocal()) {
 					// check and add to files map
 					if (object == null) {
-						object = getMacAddress();
+						object = macAddress;
 					} else {
 						boolean remoteExists = false;
 						String[] macArray = object.toString().split(MAC_SEPARATOR);
@@ -286,34 +291,63 @@ public class FavouritesRepository {
 		return new ArrayList<String>(memberNamesMap.values());
 	}
 
-	private String getMacAddress() {
-		if (macAddress == null) {
+	private void initSettings() {
+		try {
+			InetAddress addr = InetAddress.getLocalHost();
+			NetworkInterface ni = NetworkInterface.getByInetAddress(addr);
+			byte[] macBytes = ni.getHardwareAddress();
+			StringBuilder sb = new StringBuilder();
+			for (int k = 0; k < macBytes.length; k++) {
+				sb.append(String.format("%02X%s", macBytes[k], (k < macBytes.length - 1) ? "-" : ""));
+			}
+			macAddress = sb.toString();
+		} catch (Exception e) {
 			macAddress = "<Unknown>";
-			try {
-				InetAddress addr = InetAddress.getLocalHost();
-				NetworkInterface ni = NetworkInterface.getByInetAddress(addr);
-				byte[] macBytes = ni.getHardwareAddress();
-				StringBuilder sb = new StringBuilder();
-				for (int k = 0; k < macBytes.length; k++) {
-					sb.append(String.format("%02X%s", macBytes[k], (k < macBytes.length - 1) ? "-" : ""));
-				}
-				macAddress = sb.toString();
+		}
 
-			} catch (Exception e) {
+		Properties properties = new Properties();
+		File settingsFolder = new File(localSettingsPath);
+		if (!settingsFolder.exists()) {
+			boolean mkdirs = settingsFolder.mkdirs();
+			if (!mkdirs) { // choose alternate path
+				localSettingsPath = EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH;
 			}
 		}
-		return macAddress;
+		try {
+			userName = InetAddress.getLocalHost().getHostName();
+			settingsFile = new File(localSettingsPath, SETTINGS_FILE);
+			if (settingsFile.exists()) {
+				properties.load(new FileReader(settingsFile));
+				Object object = properties.get(EMediaConstants.FAV_MEMBER_LOCAL);
+				if (object != null) {
+					userName = object.toString();
+				}
+			}
+		} catch (Exception e) {
+			userName = EMediaConstants.FAV_MEMBER_UNKNOWN;
+			EMediaView.showAndLogError("Load Settings", null, e);
+		}
+
 	}
 
 	public String getUserName() {
-		if (userName == null) {
-			userName = EMediaConstants.FAV_MEMBER_UNKNOWN;
-			try {
-				userName = InetAddress.getLocalHost().getHostName();
-			} catch (Exception e) {
-			}
-		}
 		return userName;
+	}
+
+	public void setUserName(String userName) {
+		this.userName = userName;
+		saveSettings();
+	}
+
+	private void saveSettings() {
+		Properties properties = new Properties();
+		settingsFile.getParentFile().mkdirs();
+		try {
+			properties.put(EMediaConstants.FAV_MEMBER_LOCAL, userName);
+			properties.store(new FileWriter(settingsFile), null);
+		} catch (Exception e) {
+			EMediaView.showAndLogError("Save Settings", "Failed to save Settings", e);
+		}
 	}
 
 }

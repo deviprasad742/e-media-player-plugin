@@ -12,8 +12,8 @@ public class FavMedia implements IAdaptable {
 	private File file;
 	private Set<String> members = new HashSet<String>();
 
-	public FavMedia(String key, File file) {
-		this.key = key;
+	public FavMedia(File file) {
+		this.key = getKey(file);
 		this.file = file;
 	}
 

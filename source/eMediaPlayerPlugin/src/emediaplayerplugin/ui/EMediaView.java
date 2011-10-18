@@ -160,7 +160,7 @@ public class EMediaView extends ViewPart {
 	}
 
 	private void fillLocalPullDown(IMenuManager menuManager) {
-		
+		menuManager.add(preferencesAction);
 	}
 
 	private void createFavouritesSection() {
@@ -386,7 +386,7 @@ public class EMediaView extends ViewPart {
 
 	private void setLibraryButtonsEnabled(boolean enable) {
 		syncAllButton.setEnabled(enable);
-		pathsButton.setEnabled(enable);
+		prefsButton.setEnabled(enable);
 	}
 
 
@@ -394,7 +394,7 @@ public class EMediaView extends ViewPart {
 		TabItem libraryTab = new TabItem(container, SWT.NONE);
 		libraryTab.setText("Library");
 
-		mediaLibrary = new MediaLibrary(LibraryPathsDialog.getLocalPath(), LibraryPathsDialog.getRemotePath());
+		mediaLibrary = new MediaLibrary(EMediaPreferencesDialog.getLocalPath(), EMediaPreferencesDialog.getRemotePath());
 		mediaLibrary.setListener(new IListener() {
 			@Override
 			public void handleEvent(int eventKind) {
@@ -531,7 +531,7 @@ public class EMediaView extends ViewPart {
 
 	private Button syncAllButton;
 
-	private Button pathsButton;
+	private Button prefsButton;
 
 	private void hookLibAndFavContextMenu(final boolean isLibrary) {
 		MenuManager menuMgr = new MenuManager("#PopupMenu");
@@ -678,10 +678,22 @@ public class EMediaView extends ViewPart {
 			if (openSharedFileLocationAction.isEnabled()) {
 				manager.add(openSharedFileLocationAction);
 			}
+			manager.add(new Action("Show Info") {
+				public void run() {
+					File file = selectedFiles.get(0);
+					FavMedia favMedia = favouritesRepository.getFavMedia(file.getAbsolutePath());
+					if (favMedia == null) {
+						favMedia = new FavMedia(file); // create a dummy one
+					}
+					FileInfoDialog dialog = new FileInfoDialog(favMedia, mediaLibrary);
+					dialog.open();
+				};
+			});
 			manager.add(new Separator());
 		}
 
 	}
+	
 	
 	private class OpenFileLocationAction extends Action {
 		private File file;
@@ -1065,22 +1077,30 @@ public class EMediaView extends ViewPart {
 			}
 		});
 
-		pathsButton = new Button(buttonsComposite, SWT.PUSH);
-		pathsButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_HOME_NAV));
-		pathsButton.setToolTipText("Library Paths");
-		pathsButton.addSelectionListener(new SelectionAdapter() {
+		prefsButton = new Button(buttonsComposite, SWT.PUSH);
+		prefsButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_HOME_NAV));
+		prefsButton.setToolTipText("Preferences");
+		prefsButton.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent e) {
-				LibraryPathsDialog dialog = new LibraryPathsDialog(mediaLibrary.getLocalPath(), mediaLibrary.getRemotePath());
-				if (dialog.open() == IDialogConstants.OK_ID) {
-					mediaLibrary.setLocal(dialog.getLocal());
-					mediaLibrary.setRemote(dialog.getRemote());
-					syncJob.schedule();
-				}
+				preferencesAction.run();
 			}
 		});
 
 	}
 
+	private Action preferencesAction = new Action("Preferences") {
+		public void run() {
+			EMediaPreferencesDialog dialog = new EMediaPreferencesDialog(mediaLibrary.getLocalPath(), mediaLibrary.getRemotePath(), favouritesRepository.getUserName());
+				if (dialog.open() == IDialogConstants.OK_ID) {
+					mediaLibrary.setLocal(dialog.getLocal());
+					mediaLibrary.setRemote(dialog.getRemote());
+					favouritesRepository.setUserName(dialog.getUserName());
+					syncJob.schedule();
+				}
+	      };
+		
+	};
+	
 	private void downloadFiles(final List<File> files2Download, final boolean addToPlayList, final boolean play) {
 		Job downloadJob = new Job("Downloading...") {
 			@Override
