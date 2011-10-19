@@ -8,9 +8,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.Job;
@@ -85,6 +87,7 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
+import org.osgi.framework.Bundle;
 
 import emediaplayerplugin.EMediaPlayerActivator;
 import emediaplayerplugin.model.EMediaConstants;
@@ -156,6 +159,22 @@ public class EMediaView extends ViewPart {
 	}
 
 	private void fillLocalToolBar(IToolBarManager toolBarManager) {
+		final Bundle bundle = EMediaPlayerActivator.getDefault().getBundle();
+		Action helpAction = new Action("Help"){
+			@Override
+			public void run() {
+				java.net.URL pLocationUrl = FileLocator.find(bundle, new Path("/help.html"), null);
+				try {
+					java.net.URL fileURL = FileLocator.toFileURL(pLocationUrl);
+					PlatformUI.getWorkbench().getBrowserSupport().createBrowser(ID).openURL(fileURL);
+				} catch (Exception e) {
+					showAndLogError("Failed", "Failed to open help file", e);
+				}
+			}
+			
+		};
+		helpAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().getImageDescriptor(ISharedImages.IMG_LCL_LINKTO_HELP));
+		toolBarManager.add(helpAction);
 		toolBarManager.add(new PlayURLFilesAction());
 	}
 
