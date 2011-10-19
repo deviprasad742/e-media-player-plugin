@@ -1,11 +1,13 @@
 package emediaplayerplugin.model;
 
+import java.awt.Desktop;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -18,6 +20,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
+
+import org.eclipse.ui.PlatformUI;
+
+import emediaplayerplugin.EMediaPlayerActivator;
+import emediaplayerplugin.ui.notifications.EventNotifier;
+import emediaplayerplugin.ui.notifications.NotificationType;
 
 /**
  * 
@@ -45,7 +53,6 @@ public class MediaLibrary {
 
 	public void setRemote(String remote) {
 		isRemoteLocal = !remote.startsWith("\\\\");
-		isRemoteLocal = false;
 		this.remote = new File(remote);
 	}
 
@@ -240,7 +247,7 @@ public class MediaLibrary {
 		}
 	}
 
-	private void writeToRepository(File root, Map<String, Map<File, String>> lib, File file2Copy, boolean notify) throws Exception {
+	private void writeToRepository(final File root, Map<String, Map<File, String>> lib, File file2Copy, boolean notify) throws Exception {
 		String key = file2Copy.getParentFile().getName();
 		Map<File, String> filesMap = lib.get(key);
 		String repoRelativeFolderPath = EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator + key;
@@ -256,7 +263,7 @@ public class MediaLibrary {
 				repoRelativeFolderPath = parentPath.substring(parentPath.indexOf(rootPath) + rootPath.length());
 			}
 		}
-		File destination = new File(root, repoRelativeFolderPath + File.separator + file2Copy.getName());
+		final File destination = new File(root, repoRelativeFolderPath + File.separator + file2Copy.getName());
 		destination.getParentFile().mkdirs();
 		InputStream in = null;
 		OutputStream out = null;
@@ -283,6 +290,27 @@ public class MediaLibrary {
 		}
 		filesMap.put(destination, destination.getName());
 		musicMap.remove(destination.getParentFile().getName());
+		
+
+		if (EMediaConstants.canNotify()) {
+			Runnable locationRunnable = new Runnable() {
+				@Override
+				public void run() {
+					try {
+						if (root.equals(local)) {
+							Desktop.getDesktop().browse(destination.getParentFile().toURI());
+						} else {
+							PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(destination.getParentFile().toURI().toURL());
+						}
+					} catch (Exception e) {
+						EMediaPlayerActivator.getDefault().logException(e);
+					}
+				}
+			};
+			String message = "File '" + destination.getName() + "' is successfully copied to repository '" + root.getName() + "' .";
+			EventNotifier.notify("File Copied", message, locationRunnable, NotificationType.CONNECTED);
+		}
+		
 		if (notify) {
 			notifyListener();
 		}
@@ -351,7 +379,7 @@ public class MediaLibrary {
 	public void removeLocalFiles(List<File> files) {
 		for (File file : files) {
 			if (isLocalFile(file)) {
-				File parent = file.getParentFile();
+				final File parent = file.getParentFile();
 				boolean success = file.delete();
 				if (success) {
 					String[] list = parent.list();
@@ -362,6 +390,24 @@ public class MediaLibrary {
 						localLib.get(parent.getName()).remove(file);
 					}
 					musicMap.remove(parent.getName());
+
+					if (EMediaConstants.canNotify()) {
+
+						Runnable locationRunnable = new Runnable() {
+							@Override
+							public void run() {
+								try {
+									URI uri = parent.exists() ? parent.toURI() : parent.getParentFile().toURI();
+									Desktop.getDesktop().browse(uri);
+								} catch (Exception e) {
+									EMediaPlayerActivator.getDefault().logException(e);
+								}
+							}
+						};
+						String message = "File '" + file.getName() + "' is successfully removed from folder '" + parent.getName() + "' .";
+						EventNotifier.notify("File Deleted", message, locationRunnable, NotificationType.CONNECTED);
+					}
+				
 				}
 			}
 		}

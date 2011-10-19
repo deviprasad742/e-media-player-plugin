@@ -24,25 +24,26 @@ public class EMediaConstants {
 	public static final Image IMAGE_PLAY_URL = createImage("icons/play_url.png");
 	public static final Image FAV_MUSIC_FILE = createImage("icons/fav.png");
 
-	public static final String EMEDIA_SHARED_FOLDER= "#eMediaShared";
-	public static final String EMEDIA_SHARED_URL= "[#eMediaSharedUrl]:";
+	public static final String EMEDIA_SHARED_FOLDER = "#eMediaShared";
+	public static final String EMEDIA_SHARED_URL = "[#eMediaSharedUrl]:";
 
-	public static final String FAV_MEMBER_All= "<All>";
-	public static final String FAV_MEMBER_LOCAL= "<Local>";
+	public static final String FAV_MEMBER_All = "<All>";
+	public static final String FAV_MEMBER_LOCAL = "<Local>";
 	public static final String LOCAL_SETTINGS_PATH = "C:\\Program Files\\EMediaPlayerPlugin";
 	public static final String ALTERNATE_LOCAL_SETTINGS_PATH = "C:\\EMediaPlayerPlugin";
 
-	public static final String FAV_MEMBER_UNKNOWN= "<Unknown User>";
+	public static final String PREFERENCE_NOTIFY = "emedia_plugin_preference_notify";
+	public static final String PREFERENCE_SETTINGS_PATH = "emedia_plugin_preference_settings_path";
+
+	public static final String FAV_MEMBER_UNKNOWN = "<Unknown User>";
 
 	public static final String EXT_JPEG = "jpeg";
 	public static final String EXT_JPG = "jpg";
 	public static final String SEPARATOR = ",";
 
-
-
 	public static final List<String> SUPPORTED_FORMATS = new ArrayList<String>();
 
-	static{
+	static {
 		SUPPORTED_FORMATS.add("asf");
 		SUPPORTED_FORMATS.add("asx");
 		SUPPORTED_FORMATS.add("avi");
@@ -53,7 +54,7 @@ public class EMediaConstants {
 		SUPPORTED_FORMATS.add("wm");
 		SUPPORTED_FORMATS.add("wmv");
 		SUPPORTED_FORMATS.add("wvx");
-		
+
 		Display.getDefault().asyncExec(new Runnable() {
 
 			@Override
@@ -68,15 +69,18 @@ public class EMediaConstants {
 				});
 			}
 		});
-		
 
-		
 	}
-	
+
 	private static Image createImage(String filePath) {
 		Image image = ImageDescriptor.createFromFile(EMediaPlayerActivator.class, filePath).createImage();
 		createdImages.add(image);
 		return image;
 	}
-	
+
+	public static boolean canNotify() {
+		return EMediaPlayerActivator.getDefault().getPreferenceStore().getBoolean(PREFERENCE_NOTIFY);
+
+	}
+
 }

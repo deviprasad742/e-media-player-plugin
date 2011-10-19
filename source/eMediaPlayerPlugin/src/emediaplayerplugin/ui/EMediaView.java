@@ -399,6 +399,7 @@ public class EMediaView extends ViewPart {
 			@Override
 			public void handleEvent(int eventKind) {
 				refreshLibraryView();
+				refreshPlayListView();
 			}
 		});
 

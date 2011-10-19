@@ -33,7 +33,7 @@ public class NotifierDialog {
 
 	// how long the the tray popup is displayed after fading in (in
 	// milliseconds)
-	private static int DISPLAY_TIME = 20000;
+	private static int DISPLAY_TIME = 3000;
 	// how long each tick is when fading in (in ms)
 	private static final int FADE_TIMER = 50;
 	// how long each tick is when fading out (in ms)
@@ -171,7 +171,7 @@ public class NotifierDialog {
 
 		container.addMouseListener(getMouseListener(thisShell, onClick));
 		messageLabel.addMouseListener(getMouseListener(thisShell, onClick));
-		fadeIn(thisShell);
+		fadeIn(thisShell, notificationType);
 	}
 
 	private static void moveShells(final Shell thisShell, Rectangle clientArea, List<Shell> shells2Move) {
@@ -222,7 +222,7 @@ public class NotifierDialog {
 		};
 	}
 
-	private static void fadeIn(final Shell _shell) {
+	private static void fadeIn(final Shell _shell, final NotificationType notificationType) {
 		Runnable run = new Runnable() {
 
 			public void run() {
@@ -236,7 +236,7 @@ public class NotifierDialog {
 
 					if (cur > FINAL_ALPHA) {
 						_shell.setAlpha(FINAL_ALPHA);
-						startTimer(_shell);
+						startTimer(_shell, notificationType);
 						return;
 					}
 
@@ -251,7 +251,7 @@ public class NotifierDialog {
 		Display.getDefault().timerExec(FADE_TIMER, run);
 	}
 
-	private static void startTimer(final Shell _shell) {
+	private static void startTimer(final Shell _shell, NotificationType notificationType) {
 		Runnable run = new Runnable() {
 
 			public void run() {
@@ -267,7 +267,7 @@ public class NotifierDialog {
 			}
 
 		};
-		Display.getDefault().timerExec(DISPLAY_TIME, run);
+		Display.getDefault().timerExec(notificationType == NotificationType.ERROR ? DISPLAY_TIME * 3 : DISPLAY_TIME, run);
 
 	}
 

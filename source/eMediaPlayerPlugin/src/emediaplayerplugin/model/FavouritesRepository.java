@@ -18,6 +18,9 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 
+import org.eclipse.jface.preference.IPreferenceStore;
+
+import emediaplayerplugin.EMediaPlayerActivator;
 import emediaplayerplugin.ui.EMediaView;
 
 public class FavouritesRepository {
@@ -25,13 +28,13 @@ public class FavouritesRepository {
 	private static final String FAVOURITES_FILE = "favourites.japf";
 	private static final String MEMBERS_FILE = "members.japf";
 	private static final String LOCK_FILE = "lock.jalf";
-	private static final String SETTINGS_FILE = "settings.jasf";
-
+	public static final String SETTINGS_FILE = "settings.jasf";
 
 	private String remoteSettingsPath;
 	private Map<String, FavMedia> favMediaMap = Collections.synchronizedMap(new HashMap<String, FavMedia>());
 	private String userName;
 	private String macAddress;
+	private boolean notify = true;
 
 	private Map<String, String> memberNamesMap = Collections.synchronizedMap(new HashMap<String, String>());
 	private IListener listener;
@@ -306,13 +309,8 @@ public class FavouritesRepository {
 		}
 
 		Properties properties = new Properties();
-		File settingsFolder = new File(localSettingsPath);
-		if (!settingsFolder.exists()) {
-			boolean mkdirs = settingsFolder.mkdirs();
-			if (!mkdirs) { // choose alternate path
-				localSettingsPath = EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH;
-			}
-		}
+		localSettingsPath = EMediaPlayerActivator.getDefault().getPreferenceStore().getString(EMediaConstants.PREFERENCE_SETTINGS_PATH);
+
 		try {
 			userName = InetAddress.getLocalHost().getHostName();
 			settingsFile = new File(localSettingsPath, SETTINGS_FILE);
@@ -322,11 +320,17 @@ public class FavouritesRepository {
 				if (object != null) {
 					userName = object.toString();
 				}
+				String property = properties.getProperty(EMediaConstants.PREFERENCE_NOTIFY);
+				if (property != null) {
+					notify = Boolean.valueOf(property);
+				}
+				//update local preferenc from global
 			}
 		} catch (Exception e) {
 			userName = EMediaConstants.FAV_MEMBER_UNKNOWN;
 			EMediaView.showAndLogError("Load Settings", null, e);
 		}
+		EMediaPlayerActivator.getDefault().getPreferenceStore().setValue(EMediaConstants.PREFERENCE_NOTIFY, notify);
 
 	}
 
@@ -343,11 +347,14 @@ public class FavouritesRepository {
 		Properties properties = new Properties();
 		settingsFile.getParentFile().mkdirs();
 		try {
+			IPreferenceStore preferenceStore = EMediaPlayerActivator.getDefault().getPreferenceStore();
 			properties.put(EMediaConstants.FAV_MEMBER_LOCAL, userName);
+			properties.put(EMediaConstants.PREFERENCE_NOTIFY, "" + preferenceStore.getBoolean(EMediaConstants.PREFERENCE_NOTIFY));
 			properties.store(new FileWriter(settingsFile), null);
 		} catch (Exception e) {
 			EMediaView.showAndLogError("Save Settings", "Failed to save Settings", e);
 		}
 	}
 
+	
 }

@@ -1,5 +1,6 @@
 package emediaplayerplugin.model;
 
+import java.awt.Desktop;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -14,6 +15,8 @@ import org.eclipse.swt.widgets.Display;
 
 import emediaplayerplugin.EMediaPlayerActivator;
 import emediaplayerplugin.ui.EMediaView;
+import emediaplayerplugin.ui.notifications.EventNotifier;
+import emediaplayerplugin.ui.notifications.NotificationType;
 
 /**
  * 
@@ -43,14 +46,14 @@ public class MediaPlayer extends MediaModelObject {
 	public static final String SETTINGS = "settings";
 	public static final String VOLUME = "volume";
 
-	private static final String PLAY_LIST_FILE_PATH = EMediaConstants.LOCAL_SETTINGS_PATH + "playlist.japf";
-
 	public OleAutomation oPlayer;
 	private MediaControl control;
 	private List<MediaFile> playList = new ArrayList<MediaFile>();
 	private IListener listener;
 	private OleAutomation oSettings;
 	private OleAutomation oPlayList;
+	private String localSettingsPath = EMediaConstants.LOCAL_SETTINGS_PATH;
+	private static final String PLAY_LIST_FILE = "playlist.japf";
 
 	public MediaPlayer(OleAutomation oPlayer) {
 		this.oPlayer = oPlayer;
@@ -68,8 +71,16 @@ public class MediaPlayer extends MediaModelObject {
 	}
 
 	private void loadPlaylistSettings() {
+		File settingsFolder = new File(localSettingsPath);
+		if (!settingsFolder.exists()) {
+			boolean mkdirs = settingsFolder.mkdirs();
+			if (!mkdirs) { // choose alternate path
+				localSettingsPath  = EMediaConstants.ALTERNATE_LOCAL_SETTINGS_PATH;
+			}
+		}
+		EMediaPlayerActivator.getDefault().getPreferenceStore().putValue(EMediaConstants.PREFERENCE_SETTINGS_PATH, localSettingsPath);
 		String playList = null;
-		File propertiesFile = new File(PLAY_LIST_FILE_PATH);
+		File propertiesFile = new File(localSettingsPath, PLAY_LIST_FILE);
 		if (propertiesFile.exists()) {
 			Properties properties = new Properties();
 			try {
@@ -150,13 +161,28 @@ public class MediaPlayer extends MediaModelObject {
 			builder.append(comma);
 		}
 		String playList = builder.length() > 0 ? builder.substring(0, builder.length() -1) : builder.toString();
-		File propertiesFile = new File(PLAY_LIST_FILE_PATH);
+		final File propertiesFile = new File(localSettingsPath, PLAY_LIST_FILE);
 		propertiesFile.getParentFile().mkdirs();
 		Properties properties = new Properties();
 		properties.put(CURRENT_PLAYLIST, playList);
 		properties.put(LOOP,  "" + isRepeat());
 		properties.put(SHUFFLE, "" + isShuffle());
 		properties.store(new FileWriter(propertiesFile), null);
+		if (EMediaConstants.canNotify()) {
+
+			Runnable locationRunnable = new Runnable() {
+				@Override
+				public void run() {
+					try {
+						Desktop.getDesktop().browse(propertiesFile.getParentFile().toURI());
+					} catch (Exception e) {
+						EMediaPlayerActivator.getDefault().logException(e);
+					}
+				}
+			};
+			String message = "Playlist is saved successfully. Click to view the file location";
+			EventNotifier.notify("Playlist Saved", message, locationRunnable, NotificationType.CONNECTED);
+		}
 	}
 	
 	public void dispose() {

@@ -16,6 +16,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 
 import emediaplayerplugin.EMediaPlayerActivator;
+import emediaplayerplugin.model.EMediaConstants;
 
 public class EMediaPreferencesDialog extends Dialog {
 	private static final String DEFAULT_LOCAL_PATH = "C:\\EMediaPlayerPlugin\\local";
@@ -30,12 +31,15 @@ public class EMediaPreferencesDialog extends Dialog {
 	private Text localText;
 	private Text remoteText;
 	private Text userNameText;
+	private boolean notify;
+	private Button notifyButton;
 
 	public EMediaPreferencesDialog(String local, String remote, String userName) {
 		super(Display.getDefault().getActiveShell());
 		this.local = local;
 		this.remote = remote;
 		this.userName = userName;
+		this.notify = EMediaPlayerActivator.getDefault().getPreferenceStore().getBoolean(EMediaConstants.PREFERENCE_NOTIFY);
 		setShellStyle(getShellStyle() | SWT.RESIZE);
 	}
 
@@ -45,8 +49,6 @@ public class EMediaPreferencesDialog extends Dialog {
 		Composite container = new Composite(parent, SWT.NONE);
 		GridDataFactory.fillDefaults().grab(true, false).span(400, SWT.DEFAULT).applyTo(container);
 		GridLayoutFactory.fillDefaults().numColumns(3).margins(5, 5).applyTo(container);
-		localText = createRow(container, "Local: ", local);
-		remoteText = createRow(container, "Remote: ", remote);
 		
 		Label label = new Label(container, SWT.NONE);
 		label.setText("User: ");
@@ -55,6 +57,14 @@ public class EMediaPreferencesDialog extends Dialog {
 		userNameText.setText(userName);
 		GridDataFactory.fillDefaults().grab(true, false).span(2, 1).applyTo(userNameText);
 		
+		notifyButton = new Button(container, SWT.CHECK);
+		notifyButton.setText("Enable Notifications");
+		notifyButton.setSelection(notify);
+		GridDataFactory.swtDefaults().span(3, 1).applyTo(notifyButton);
+		
+		localText = createRow(container, "Local: ", local);
+		remoteText = createRow(container, "Remote: ", remote);
+
 		return container;
 	}
 
@@ -89,6 +99,8 @@ public class EMediaPreferencesDialog extends Dialog {
 		local = localText.getText();
 		remote = remoteText.getText();
 		userName = userNameText.getText();
+		notify = notifyButton.getSelection();
+		EMediaPlayerActivator.getDefault().getPreferenceStore().setValue(EMediaConstants.PREFERENCE_NOTIFY, notify);
 		IDialogSettings dialogSettings = EMediaPlayerActivator.getDefault().getDialogSettings();
 		dialogSettings.put(LOCAL_PATH, local);
 		dialogSettings.put(REMOTE_PATH, remote);
@@ -106,7 +118,7 @@ public class EMediaPreferencesDialog extends Dialog {
 	public String getUserName() {
 		return userName;
 	}
-
+	
 	public static String getLocalPath() {
 		String path = EMediaPlayerActivator.getDefault().getDialogSettings().get(LOCAL_PATH);
 		if (path == null) {
