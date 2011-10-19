@@ -68,5 +68,14 @@ public class FavMedia implements IAdaptable {
 		}
 		return null;
 	}
+	
+	public boolean filterByUser(String filter) {
+		for (String member : members) {
+			if (member.toLowerCase().contains(filter.toLowerCase())) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 }

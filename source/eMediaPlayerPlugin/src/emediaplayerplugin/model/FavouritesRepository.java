@@ -103,6 +103,10 @@ public class FavouritesRepository {
 				FavMedia favMedia = favMediaMap.get(key);
 				if (favMedia == null) {
 					File file = mediaLibrary.getFile(FavMedia.getFolderName(key), FavMedia.getFileName(key));
+					if (file == null) {
+						//create a dummy file
+						file = new File(File.separator + EMediaConstants.UNSHARED_FAVOURITES,key);
+					}
 					if (file != null) {
 						favMedia = new FavMedia(file);
 						favMediaMap.put(key, favMedia);

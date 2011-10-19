@@ -184,7 +184,7 @@ public class EMediaView extends ViewPart {
 		GridDataFactory.fillDefaults().grab(true, false).applyTo(filterComposite);
 		GridLayoutFactory.fillDefaults().numColumns(4).applyTo(filterComposite);
 
-		String tooltip = "Type file name or album name or hit count(Ex:+3) to filter the items";
+		String tooltip = "Type one of the following file name, album name, path, user name or hit count(Ex:+3) to filter the items";
 		Label label = new Label(filterComposite, SWT.NONE);
 		label.setText("Filter: ");
 		label.setToolTipText(tooltip);
@@ -220,18 +220,19 @@ public class EMediaView extends ViewPart {
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(favouritesViewer.getControl());
 		favouritesViewer.getTable().setHeaderVisible(true);
 		favouritesViewer.getTable().setLinesVisible(true);
+		TableViewerColumn durationColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
+		durationColumn.getColumn().setText(HITS);
+		durationColumn.getColumn().setWidth(60);
 		
 		TableViewerColumn nameColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
 		nameColumn.getColumn().setText(NAME);
 		nameColumn.getColumn().setWidth(150);
 
+	
 		TableViewerColumn albumColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
 		albumColumn.getColumn().setText(ALBUM);
 		albumColumn.getColumn().setWidth(150);
 		
-		TableViewerColumn durationColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
-		durationColumn.getColumn().setText(HITS);
-		durationColumn.getColumn().setWidth(60);
 
 		TableViewerColumn urlColumn = new TableViewerColumn(favouritesViewer, SWT.NONE);
 		urlColumn.getColumn().setText(URL);
@@ -508,7 +509,7 @@ public class EMediaView extends ViewPart {
 			String favFilter = favFilterText.getText().trim();
 			if (element instanceof FavMedia) {
 				FavMedia favMedia = (FavMedia) element;
-				boolean isFileMatch = isMatch(favFilter, favMedia.getKey());
+				boolean isTextMatch = isMatch(favFilter, favMedia.getFile().getAbsolutePath()) || favMedia.filterByUser(favFilter);
 				boolean isHitsMatch = isMatch(favFilter, "+" + favMedia.getMembers().size());
 				boolean isUserFiltered = false;
 				String user = favUsersCombo.getText();
@@ -519,7 +520,7 @@ public class EMediaView extends ViewPart {
 				} else {
 					isUserFiltered = favMedia.getMembers().contains(user);
 				}
-				return (isFileMatch || isHitsMatch || favFilter.isEmpty()) && isUserFiltered;
+				return (isTextMatch || isHitsMatch || favFilter.isEmpty()) && isUserFiltered;
 			}
 			return false;
 		}
@@ -1116,7 +1117,7 @@ public class EMediaView extends ViewPart {
 						}
 
 						File localFile = mediaLibrary.downloadLocalFile(file, files2Download.size() == i);
-						if (addToPlayList) {
+						if (localFile.exists() && addToPlayList) {
 							mediaPlayer.addToPlayList(localFile.getAbsolutePath(), play && i == 1);
 						}
 					}
@@ -1674,11 +1675,11 @@ public class EMediaView extends ViewPart {
 				FavMedia favMedia = (FavMedia) element;
 				switch (columnIndex) {
 				case 0:
-					return favMedia.getFile().getName();
-				case 1:
-					return favMedia.getFile().getParentFile().getName();
-				case 2:
 					return "+" + favMedia.getMembers().size();
+				case 1:
+					return favMedia.getFile().getName();
+				case 2:
+					return favMedia.getFile().getParentFile().getName();
 				default:
 					return favMedia.getFile().getAbsolutePath();
 				}
@@ -1689,6 +1690,12 @@ public class EMediaView extends ViewPart {
 
 		@Override
 		public Color getForeground(Object element) {
+			if (element instanceof FavMedia) {
+				FavMedia favMedia = (FavMedia) element;
+                if (!favMedia.getFile().exists()) {
+                	return Display.getDefault().getSystemColor(SWT.COLOR_RED);
+                }
+			}
 			return null;
 		}
 
