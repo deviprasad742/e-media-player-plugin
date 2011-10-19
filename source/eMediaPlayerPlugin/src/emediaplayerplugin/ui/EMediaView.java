@@ -1712,7 +1712,7 @@ public class EMediaView extends ViewPart {
 			if (element instanceof FavMedia) {
 				FavMedia favMedia = (FavMedia) element;
                 if (!favMedia.getFile().exists()) {
-                	return Display.getDefault().getSystemColor(SWT.COLOR_RED);
+                	return Display.getDefault().getSystemColor(SWT.COLOR_DARK_GRAY);
                 }
 			}
 			return null;
