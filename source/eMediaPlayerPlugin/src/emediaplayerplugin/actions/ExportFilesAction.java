@@ -49,7 +49,7 @@ public class ExportFilesAction extends Action {
 			Job exportJob = new Job("Exporting Selected Files") {
 				@Override
 				protected IStatus run(IProgressMonitor monitor) {
-                    monitor.beginTask("Exporting files to location '" + root.getAbsolutePath()+ ", ", files2Copy.size() + 2);					
+                    monitor.beginTask("Exporting files to location '" + root.getAbsolutePath()+ "' ", files2Copy.size() + 2);					
 					Map<String, Map<File, String>> lib = new HashMap<String, Map<File, String>>();
 					monitor.subTask("Loading existing folder strucutre.");
 					mediaLibrary.syncRepository(lib, root, true);
