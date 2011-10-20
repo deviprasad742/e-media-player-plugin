@@ -62,11 +62,11 @@ public class MediaLibrary {
 	}
 
 	public List<String> syncLocalRepository() {
-		return syncRepository(localLib, local, true);
+		return syncRepository(localLib, local, false);
 	}
 
 	public List<String> syncRemoteRepository() {
-		return syncRepository(remoteLib, remote, true);
+		return syncRepository(remoteLib, remote, false);
 	}
 
 	public List<String> syncRepository(Map<String, Map<File, String>> lib, File root, boolean isExternal) {
