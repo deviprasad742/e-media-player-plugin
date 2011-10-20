@@ -52,7 +52,7 @@ public class MediaLibrary {
 	}
 
 	public void setRemote(String remote) {
-		isRemoteLocal = !remote.startsWith("\\\\");
+		isRemoteLocal = isLocalPath(remote);
 		this.remote = new File(remote);
 	}
 
@@ -62,14 +62,14 @@ public class MediaLibrary {
 	}
 
 	public List<String> syncLocalRepository() {
-		return syncRepository(localLib, local);
+		return syncRepository(localLib, local, true);
 	}
 
 	public List<String> syncRemoteRepository() {
-		return syncRepository(remoteLib, remote);
+		return syncRepository(remoteLib, remote, true);
 	}
 
-	private List<String> syncRepository(Map<String, Map<File, String>> lib, File root) {
+	public List<String> syncRepository(Map<String, Map<File, String>> lib, File root, boolean isExternal) {
 		List<String> added = new ArrayList<String>();
 		Map<String, Map<File, String>> localLib = new HashMap<String, Map<File, String>>();
 		populateFiles(localLib, root);
@@ -78,9 +78,13 @@ public class MediaLibrary {
 			added.removeAll(lib.keySet());
 			lib.clear();
 			lib.putAll(localLib);
-			musicMap.clear();
+			if (!isExternal) {
+				musicMap.clear();
+			}
 		}
-		notifyListener();
+		if (!isExternal) {
+			notifyListener();
+		}
 		return added;
 	}
 
@@ -237,20 +241,20 @@ public class MediaLibrary {
 	public void addToLocalRepository(File remote, boolean notify) throws Exception {
 		// check before adding
 		if (!isLocalFile(remote)) {
-			writeToRepository(local, localLib, remote, notify);
+			writeToRepository(local, localLib, remote, notify, false);
 		}
 	}
 
 	public void addToRemoteRepository(File local, boolean notify) throws Exception {
 		if (isRemoteShareRequired(local)) {
-			writeToRepository(remote, remoteLib, local, notify);
+			writeToRepository(remote, remoteLib, local, notify, false);
 		}
 	}
 
-	private void writeToRepository(final File root, Map<String, Map<File, String>> lib, File file2Copy, boolean notify) throws Exception {
+	public void writeToRepository(final File root, Map<String, Map<File, String>> lib, File file2Copy, boolean notify, boolean isExternal) throws Exception {
 		String key = file2Copy.getParentFile().getName();
 		Map<File, String> filesMap = lib.get(key);
-		String repoRelativeFolderPath = EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator + key;
+		String repoRelativeFolderPath = isExternal ? key : EMediaConstants.EMEDIA_SHARED_FOLDER + File.separator + key;
 		if (filesMap != null) {
 			File firstFile = null;
 			for (Entry<File, String> entry : filesMap.entrySet()) {
@@ -289,7 +293,9 @@ public class MediaLibrary {
 			lib.put(key, filesMap);
 		}
 		filesMap.put(destination, destination.getName());
-		musicMap.remove(destination.getParentFile().getName());
+		if (!isExternal) {
+			musicMap.remove(destination.getParentFile().getName());
+		}
 		
 
 		if (EMediaConstants.canNotify()) {
@@ -297,7 +303,7 @@ public class MediaLibrary {
 				@Override
 				public void run() {
 					try {
-						if (root.equals(local)) {
+						if (isLocalPath(destination.getAbsolutePath())) {
 							Desktop.getDesktop().browse(destination.getParentFile().toURI());
 						} else {
 							PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(destination.getParentFile().toURI().toURL());
@@ -308,7 +314,7 @@ public class MediaLibrary {
 				}
 			};
 			String message = "File '" + destination.getName() + "' is successfully copied to repository '" + root.getName() + "' .";
-			EventNotifier.notify("File Copied", message, locationRunnable, NotificationType.CONNECTED);
+			EventNotifier.notify("File Added", message, locationRunnable, NotificationType.CONNECTED);
 		}
 		
 		if (notify) {
@@ -412,6 +418,10 @@ public class MediaLibrary {
 			}
 		}
 		notifyListener();
+	}
+	
+	public static boolean isLocalPath(String path) {
+		return !path.startsWith("\\\\");
 	}
 
 }

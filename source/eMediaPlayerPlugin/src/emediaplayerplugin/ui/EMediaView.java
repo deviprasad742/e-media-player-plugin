@@ -90,6 +90,8 @@ import org.eclipse.ui.part.ViewPart;
 import org.osgi.framework.Bundle;
 
 import emediaplayerplugin.EMediaPlayerActivator;
+import emediaplayerplugin.actions.CopyFilesAction;
+import emediaplayerplugin.actions.ExportFilesAction;
 import emediaplayerplugin.model.EMediaConstants;
 import emediaplayerplugin.model.FavMedia;
 import emediaplayerplugin.model.FavouritesRepository;
@@ -588,18 +590,6 @@ public class EMediaView extends ViewPart {
 				manager.add(playFileAction);
 			}
 			manager.add(addToPlaylistAction);
-
-			final String clipboardURL = getClipboardURL();
-			if (clipboardURL != null && (MediaLibrary.isWebUrl(clipboardURL))) {
-				manager.add(new Action("Play Clipboard URL") {
-					@Override
-					public void run() {
-						mediaPlayer.addToPlayList(clipboardURL, true);
-						mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
-					}
-				});
-			}
-
 			manager.add(new Separator());
 
 			if (!structuredSelection.isEmpty()) {
@@ -663,28 +653,25 @@ public class EMediaView extends ViewPart {
 			manager.add(new Separator());
 		}
 		
-		
-		ShareFilesAction shareFilesAction = new ShareFilesAction(selectedFiles);
-		DownloadFilesAction downloadFilesAction = new DownloadFilesAction(selectedFiles);
-		ShareFilesURLAction shareFilesURLAction = new ShareFilesURLAction(selectedFiles);
-
-		if (shareFilesAction.isEnabled()) {
-			manager.add(shareFilesAction);
+		List<Action> shareActions = new ArrayList<Action>(); 
+		shareActions.add(new CopyFilesAction(selectedFiles, mediaLibrary));
+		shareActions.add(new ExportFilesAction(selectedFiles, mediaLibrary));
+		shareActions.add(new ShareFilesAction(selectedFiles));
+		shareActions.add(new DownloadFilesAction(selectedFiles));
+		shareActions.add(new ShareFilesURLAction(selectedFiles));
+	
+		 boolean shareSepartor = false;
+		for (Action shareAction : shareActions) {
+			if (shareAction.isEnabled()) {
+				manager.add(shareAction);
+				shareSepartor = true;
+			}
 		}
-		
-		if (downloadFilesAction.isEnabled()) {
-			manager.add(downloadFilesAction);
-		}
-		
-		if (shareFilesURLAction.isEnabled()) {
-			manager.add(shareFilesURLAction);
-		}
-		
-		if (shareFilesAction.isEnabled() || downloadFilesAction.isEnabled() || shareFilesURLAction.isEnabled()) {
+		 
+		if (shareSepartor) {
 			manager.add(new Separator());
 		}
-		
-		
+
 		if (!isLibraryMenu && !isPlayListMenu) {
 			manager.add(syncFavouritesAction);
 			manager.add(new Separator());
@@ -757,7 +744,11 @@ public class EMediaView extends ViewPart {
 
 		public void run() {
 			try {
-				PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(file.getParentFile().toURI().toURL());
+				if (MediaLibrary.isLocalPath(file.getAbsolutePath())) {
+					Desktop.getDesktop().browse(file.getParentFile().toURI());
+				} else {
+					PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(file.getParentFile().toURI().toURL());
+				}
 			} catch (Exception e) {
 				showAndLogError(getText(), "Failed to open shared location: "  + file.getParentFile().getAbsolutePath(), e);
 			}
@@ -901,14 +892,20 @@ public class EMediaView extends ViewPart {
 		public PlayURLFilesAction() {
 			setImageDescriptor(ImageDescriptor.createFromImage(EMediaConstants.IMAGE_PLAY_URL));
 			setText("Play URL");
-			setToolTipText("Plays files present in the clipboard if it represents a valid url");
+			setToolTipText("Play a shared url or web url from clipboard");
 		}
 		
 		public void run() {
 			final String[] fileKeys = getClipFileKeys();
 			
 			if (fileKeys == null || fileKeys.length == 0) {
-				String message = "Clipboard doesnt contain a valid url which contains the files to play";
+				final String clipboardURL = getClipboardURL();
+				if (clipboardURL != null && (MediaLibrary.isWebUrl(clipboardURL))) {
+					mediaPlayer.addToPlayList(clipboardURL, true);
+					mediaPlayer.playItem(playListViewer.getTable().getItemCount() - 1);
+					return;
+				}
+				String message = "Clipboard doesnt contain a valid url. View the shared urls section from help to know about the shared urls.";
 				MessageDialog.openInformation(Display.getDefault().getActiveShell(), "Invalid URL", message);
 				return;
 			}
