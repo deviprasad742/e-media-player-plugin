@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <site>
-   <feature url="features/eMediaPlayerFeature_1.0.0.201110210206.jar" id="eMediaPlayerFeature" version="1.0.0.201110210206">
+   <feature url="features/eMediaPlayerFeature_1.0.0.201110220142.jar" id="eMediaPlayerFeature" version="1.0.0.201110220142">
       <category name="entertainment"/>
    </feature>
    <category-def name="entertainment" label="Entertainment"/>

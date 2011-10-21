@@ -225,7 +225,7 @@ public class FavouritesRepository {
 	public void saveRemoteFavourites() throws Exception {
 		FileChannel channel = null;
 		try {
-			File file = new File(remoteSettingsPath + LOCK_FILE);
+			File file = new File(remoteSettingsPath, LOCK_FILE);
 			file.getParentFile().mkdirs();
 			file.createNewFile();
 			channel = new RandomAccessFile(file, "rw").getChannel();

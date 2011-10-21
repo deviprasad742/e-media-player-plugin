@@ -1604,7 +1604,7 @@ public class EMediaView extends ViewPart {
 		public Image getColumnImage(Object element, int columnIndex) {
 			if (columnIndex == 0) {
 				MediaFile mediaFile = (MediaFile) element;
-                if (favouritesRepository != null && favouritesRepository.isFavMedia(mediaFile.getUrl())) {
+                if (favouritesRepository != null && favouritesRepository.isLocalFavMedia(mediaFile.getUrl())) {
                 	return EMediaConstants.FAV_MUSIC_FILE;
                 }
 				return EMediaConstants.IMAGE_MUSIC_FILE;
