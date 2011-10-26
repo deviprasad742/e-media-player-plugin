@@ -38,9 +38,11 @@ import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.IFontProvider;
 import org.eclipse.jface.viewers.ILabelProvider;
 import org.eclipse.jface.viewers.ILabelProviderListener;
+import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.ITableLabelProvider;
 import org.eclipse.jface.viewers.ITreeContentProvider;
+import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.TableViewerColumn;
 import org.eclipse.jface.viewers.TreeViewer;
@@ -129,6 +131,8 @@ public class EMediaView extends ViewPart {
 
 
 	private Text favFilterText;
+	private Text playListFilterText;
+
 	private Combo favUsersCombo;
 	public static final String NAME = "Name";
 	public static final String DURATION = "Duration";
@@ -199,7 +203,7 @@ public class EMediaView extends ViewPart {
 		Composite favComposite = new Composite(container, SWT.NONE);
 		favTab.setControl(favComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(favComposite);
-		GridLayoutFactory.fillDefaults().numColumns(1).applyTo(favComposite);
+		GridLayoutFactory.fillDefaults().numColumns(1).margins(2,2).applyTo(favComposite);
 
 		Composite filterComposite = new Composite(favComposite, SWT.NONE);
 		GridDataFactory.fillDefaults().grab(true, false).applyTo(filterComposite);
@@ -296,7 +300,7 @@ public class EMediaView extends ViewPart {
 		List<String> members = favouritesRepository.getMembers();
 		members.remove(favouritesRepository.getUserName());
 		Collections.sort(members);
-		members.add(0, EMediaConstants.FAV_MEMBER_LOCAL);
+		members.add(0, favouritesRepository.getUserName());
 		members.add(0, EMediaConstants.FAV_MEMBER_All);
 		favUsersCombo.setItems(members.toArray(new String[0]));
         favUsersCombo.select(members.indexOf(user));
@@ -337,7 +341,10 @@ public class EMediaView extends ViewPart {
 		Runnable runnable = new Runnable() {
 			@Override
 			public void run() {
-				playListViewer.refresh();
+				if (!playListViewer.getControl().isDisposed()) {
+					playListViewer.setInput(mediaPlayer.getPlayList());
+					updatePlaylistButtons();
+				}
 			}
 		};
 		safelyRunInUI(runnable);
@@ -428,7 +435,7 @@ public class EMediaView extends ViewPart {
 		Composite libraryComposite = new Composite(container, SWT.NONE);
 		libraryTab.setControl(libraryComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryComposite);
-		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(libraryComposite);
+		GridLayoutFactory.fillDefaults().numColumns(2).margins(2,2).applyTo(libraryComposite);
 
 		Composite filterComposite = new Composite(libraryComposite, SWT.NONE);
 		GridDataFactory.fillDefaults().grab(true, false).span(2, 1).applyTo(filterComposite);
@@ -536,12 +543,24 @@ public class EMediaView extends ViewPart {
 				String user = favUsersCombo.getText();
 				if (user.equals(EMediaConstants.FAV_MEMBER_All)) {
 					isUserFiltered = true;
-				} else if (user.equals(EMediaConstants.FAV_MEMBER_LOCAL)) {
+				} else if (user.equals(favouritesRepository.getUserName())) {
 					isUserFiltered = favMedia.isLocal();
 				} else {
 					isUserFiltered = favMedia.getMembers().contains(user);
 				}
 				return (isTextMatch || isHitsMatch || favFilter.isEmpty()) && isUserFiltered;
+			}
+			return false;
+		}
+
+	};
+	
+	private ViewerFilter playListFilter = new ViewerFilter() {
+		@Override
+		public boolean select(Viewer viewer, Object parentElement, Object element) {
+			String filter = playListFilterText.getText().trim();
+			if (element instanceof MediaFile) {
+				return filter.isEmpty() || isMatch(filter, ((MediaFile) element).getName());
 			}
 			return false;
 		}
@@ -1172,6 +1191,10 @@ public class EMediaView extends ViewPart {
 
 	private boolean isEnterMode;
 	private int folderCount;
+	private Button deleteFromPlaylistButton;
+	private Button clearPlaylistButton;
+	private Button moveUpButton;
+	private Button moveDownButton;
 
 	private class LibraryContentProvider implements ITreeContentProvider {
 		@Override
@@ -1355,8 +1378,24 @@ public class EMediaView extends ViewPart {
 
 		Composite playListComposite = new Composite(container, SWT.NONE);
 		playListTab.setControl(playListComposite);
-		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(playListComposite);
+		GridLayoutFactory.fillDefaults().numColumns(2).margins(2,2).applyTo(playListComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(playListComposite);
+		
+		Composite filterComposite = new Composite(playListComposite, SWT.NONE);
+		GridDataFactory.fillDefaults().grab(true, false).span(2, 1).applyTo(filterComposite);
+		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(filterComposite);
+		
+		Label label = new Label(filterComposite, SWT.NONE);
+		label.setText("Filter: ");
+		GridDataFactory.swtDefaults().applyTo(label);
+		playListFilterText = new Text(filterComposite, SWT.BORDER);
+		GridDataFactory.fillDefaults().grab(true, false).applyTo(playListFilterText);
+		playListFilterText.addModifyListener(new ModifyListener() {
+			@Override
+			public void modifyText(ModifyEvent e) {
+			    refreshPlayListView();
+			}
+		});
 
 		addPlayListViewer(playListComposite);
 
@@ -1367,6 +1406,13 @@ public class EMediaView extends ViewPart {
 	}
 
 	private void addPlaylistActionsAndButtons(Composite buttonsComposite) {
+		playListViewer.addSelectionChangedListener(new ISelectionChangedListener() {
+			@Override
+			public void selectionChanged(SelectionChangedEvent event) {
+                 updatePlaylistButtons();				
+			}
+		});
+		
 		Button addButton = new Button(buttonsComposite, SWT.PUSH);
 		addButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_ADD));
 		addButton.setToolTipText("Add To Playlist");
@@ -1376,7 +1422,25 @@ public class EMediaView extends ViewPart {
 			}
 		});
 
-		Button deleteFromPlaylistButton = new Button(buttonsComposite, SWT.PUSH);
+		moveUpButton = new Button(buttonsComposite, SWT.PUSH);
+		moveUpButton.setImage(EMediaConstants.IMAGE_UP);
+		moveUpButton.setToolTipText("Move Up");
+		moveUpButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				movePlayListItems(true);
+			}
+		});
+		
+	    moveDownButton = new Button(buttonsComposite, SWT.PUSH);
+		moveDownButton.setImage(EMediaConstants.IMAGE_DOWN);
+		moveDownButton.setToolTipText("Move Down");
+		moveDownButton.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				movePlayListItems(false);
+			}
+		});
+
+	    deleteFromPlaylistButton = new Button(buttonsComposite, SWT.PUSH);
 		deleteFromPlaylistButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_DELETE));
 		deleteFromPlaylistButton.setToolTipText("Remove From Playlist");
 		deleteFromPlaylistButton.addSelectionListener(new SelectionAdapter() {
@@ -1387,7 +1451,7 @@ public class EMediaView extends ViewPart {
 
 		});
 
-		Button clearPlaylistButton = new Button(buttonsComposite, SWT.PUSH);
+	    clearPlaylistButton = new Button(buttonsComposite, SWT.PUSH);
 		clearPlaylistButton.setImage(PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_ETOOL_CLEAR));
 		clearPlaylistButton.setToolTipText("Clear Playlist");
 		clearPlaylistButton.addSelectionListener(new SelectionAdapter() {
@@ -1415,7 +1479,19 @@ public class EMediaView extends ViewPart {
 		Menu menu = menuMgr.createContextMenu(playListViewer.getControl());
 		playListViewer.getControl().setMenu(menu);
 		getSite().registerContextMenu(menuMgr, playListViewer);
-
+	}
+	
+	private void updatePlaylistButtons() {
+		IStructuredSelection structuredSelection = (IStructuredSelection) playListViewer.getSelection();
+		deleteFromPlaylistButton.setEnabled(!structuredSelection.isEmpty());
+		clearPlaylistButton.setEnabled(playListViewer.getTable().getItemCount() > 0);
+		Object firstElement = structuredSelection.getFirstElement();
+		List<MediaFile> playList = mediaPlayer.getPlayList();
+		boolean isUpEnabled = firstElement != null && playList.indexOf(firstElement) != 0;
+		boolean isDownEnabled = !structuredSelection.isEmpty()
+				&& structuredSelection.toList().get(structuredSelection.size() - 1) != playList.get(playList.size() - 1);
+		moveUpButton.setEnabled(isUpEnabled);
+		moveDownButton.setEnabled(isDownEnabled);
 	}
 
 
@@ -1443,6 +1519,17 @@ public class EMediaView extends ViewPart {
 		}
 		return null;
 	}
+	
+	
+	public void movePlayListItems(boolean up) {
+		IStructuredSelection structuredSelection = (IStructuredSelection) playListViewer.getSelection();
+		int i = 0;
+		for (Object object : structuredSelection.toList()) {
+			i++;
+			MediaFile mediaFile = (MediaFile) object;
+			mediaPlayer.moveItem(mediaFile, up, i == structuredSelection.size());
+		}
+	}
 
 	private Action savePlaylistAction = new Action("Save Playlist") {
 		public void run() {
@@ -1457,8 +1544,9 @@ public class EMediaView extends ViewPart {
 
 	private Action playFileAction = new Action("Play") {
 		public void run() {
-			int index = playListViewer.getTable().getSelectionIndex();
-			mediaPlayer.playItem(index);
+			IStructuredSelection selection = (IStructuredSelection) playListViewer.getSelection();
+			Object firstElement = selection.getFirstElement();
+			mediaPlayer.playItem((MediaFile)firstElement);
 		};
 	};
 
@@ -1471,38 +1559,34 @@ public class EMediaView extends ViewPart {
 	private Action clearPlayListAction = new Action("Clear") {
 
 		public void run() {
-			int count = playListViewer.getTable().getItemCount();
+			List<MediaFile> playList = mediaPlayer.getPlayList();
+			int count = playList.size();
 			if (count > 0) {
 				boolean proceed = !confirmClear
 						|| MessageDialog.openQuestion(Display.getDefault().getActiveShell(), "Confirm",
 								"Are you sure you want to clear the playlist?");
 				if (proceed) {
-					while (count > 0) {
-						mediaPlayer.removeItem(--count);
+					int i = 0;
+					for (MediaFile mediaFile : playList) {
+						i++;
+						mediaPlayer.removeItem(mediaFile, i == count);
 					}
 				}
 			}
 		}
 
 	};
+	
 
 	private Action removeFromPlaylistAction = new Action("Remove") {
 		public void run() {
-
-			int[] selectionIndices = playListViewer.getTable().getSelectionIndices();
-			int length = selectionIndices.length;
-			while (length > 0) {
-				mediaPlayer.removeItem(selectionIndices[0]);
-				length--;
+			IStructuredSelection structuredSelection = (IStructuredSelection) playListViewer.getSelection();
+			List<?> list = structuredSelection.toList();
+			int i = 0;
+			for (Object object : list) {
+				i++;
+				mediaPlayer.removeItem((MediaFile) object, i == list.size());
 			}
-			if (selectionIndices.length > 0) {
-				int newIndex = selectionIndices[selectionIndices.length - 1] - 1;
-				if (newIndex == -1) {
-					newIndex++;
-				}
-				playListViewer.getTable().select(newIndex);
-			}
-
 		};
 	};
 
@@ -1554,19 +1638,12 @@ public class EMediaView extends ViewPart {
 		playListViewer.setContentProvider(new ArrayContentProvider());
 		playListViewer.setLabelProvider(new PlaylistLabelProvider());
 		playListViewer.setInput(mediaPlayer.getPlayList());
+		playListViewer.setFilters(new ViewerFilter[] {playListFilter});
 
 		mediaPlayer.setListener(new IListener() {
 			@Override
 			public void handleEvent(int eventKind) {
-				Display.getDefault().asyncExec(new Runnable() {
-
-					@Override
-					public void run() {
-						if (!playListViewer.getControl().isDisposed()) {
-							playListViewer.refresh();
-						}
-					}
-				});
+				refreshPlayListView();
 			}
 		});
 

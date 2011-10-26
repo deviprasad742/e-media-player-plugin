@@ -35,6 +35,10 @@ public class MediaModelObject {
 		return auto.getIDsOfNames(new String[] { name })[0];
 	}
 
+	public Variant invoke(OleAutomation auto, String command, Variant[] values) {
+		return auto.invoke(property(auto, command), values);
+	}
+	
 	public Variant invoke(OleAutomation auto, String command, Variant value) {
 		return auto.invoke(property(auto, command), new Variant[] { value });
 	}

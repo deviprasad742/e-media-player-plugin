@@ -1,8 +1,10 @@
 package emediaplayerplugin.model;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -66,7 +68,7 @@ public class FavouritesRepository {
 
 		if (localFile.exists()) {
 			Properties localProperties = new Properties();
-			localProperties.load(new FileReader(localFile));
+			loadProperties(localProperties, localFile);
 			for (Entry<Object, Object> entry : localProperties.entrySet()) {
 				String key = entry.getKey().toString();
 				String fileURL = entry.getValue().toString();
@@ -84,7 +86,7 @@ public class FavouritesRepository {
 
 		if (membersFile.exists()) {
 			Properties membersMap = new Properties();
-			membersMap.load(new FileReader(membersFile));
+			loadProperties(membersMap, membersFile);
 			for (Entry<Object, Object> entry : membersMap.entrySet()) {
 				String macA = entry.getKey().toString();
 				String userN = entry.getValue().toString();
@@ -97,7 +99,7 @@ public class FavouritesRepository {
 
 		if (remoteFile.exists()) {
 			Properties remoteProperties = new Properties();
-			remoteProperties.load(new FileReader(remoteFile));
+			loadProperties(remoteProperties, remoteFile);
 			for (Entry<Object, Object> entry : remoteProperties.entrySet()) {
 				String key = entry.getKey().toString();
 				FavMedia favMedia = favMediaMap.get(key);
@@ -218,8 +220,7 @@ public class FavouritesRepository {
 			}
 		}
 		localFile.getParentFile().mkdirs();
-		properties.store(new FileWriter(localFile), null);
-
+		storeProperties(properties, localFile);
 	}
 
 	public void saveRemoteFavourites() throws Exception {
@@ -232,7 +233,7 @@ public class FavouritesRepository {
 			FileLock lock = channel.lock();
 			Properties remoteProperties = new Properties();
 			if (remoteFile.exists()) {
-				remoteProperties.load(new FileReader(remoteFile));
+				loadProperties(remoteProperties, remoteFile);
 			}
 			for (Entry<String, FavMedia> entry : favMediaMap.entrySet()) {
 				String key = entry.getKey();
@@ -277,15 +278,14 @@ public class FavouritesRepository {
 				}
 			}
 			remoteFile.getParentFile().mkdirs();
-			remoteProperties.store(new FileWriter(remoteFile), null);
+			storeProperties(remoteProperties, remoteFile);
 
 			Properties members = new Properties();
 			if (membersFile.exists()) {
-				members.load(new FileReader(membersFile));
+				loadProperties(members, membersFile);
 			}
 			members.put(macAddress, userName);
-			members.store(new FileWriter(membersFile), null);
-
+			storeProperties(members, membersFile);
 			lock.release();
 		} finally {
 			if (channel != null) {
@@ -294,6 +294,23 @@ public class FavouritesRepository {
 		}
 	}
 
+	public static void loadProperties(Properties properties, File file) throws FileNotFoundException, IOException {
+		FileReader reader = new FileReader(file);
+		try {
+			properties.load(reader);
+		} finally {
+			reader.close();
+		}
+	}
+
+	public static void storeProperties(Properties properties, File file) throws FileNotFoundException, IOException {
+		FileWriter writer = new FileWriter(file);
+		try {
+			properties.store(writer, null);
+		} finally {
+			writer.close();
+		}
+	}
 	public List<String> getMembers() {
 		return new ArrayList<String>(memberNamesMap.values());
 	}
@@ -319,7 +336,7 @@ public class FavouritesRepository {
 			userName = InetAddress.getLocalHost().getHostName();
 			settingsFile = new File(localSettingsPath, SETTINGS_FILE);
 			if (settingsFile.exists()) {
-				properties.load(new FileReader(settingsFile));
+				loadProperties(properties, settingsFile);
 				Object object = properties.get(EMediaConstants.FAV_MEMBER_LOCAL);
 				if (object != null) {
 					userName = object.toString();
@@ -354,7 +371,7 @@ public class FavouritesRepository {
 			IPreferenceStore preferenceStore = EMediaPlayerActivator.getDefault().getPreferenceStore();
 			properties.put(EMediaConstants.FAV_MEMBER_LOCAL, userName);
 			properties.put(EMediaConstants.PREFERENCE_NOTIFY, "" + preferenceStore.getBoolean(EMediaConstants.PREFERENCE_NOTIFY));
-			properties.store(new FileWriter(settingsFile), null);
+			storeProperties(properties, settingsFile);
 		} catch (Exception e) {
 			EMediaView.showAndLogError("Save Settings", "Failed to save Settings", e);
 		}

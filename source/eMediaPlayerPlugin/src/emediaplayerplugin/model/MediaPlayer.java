@@ -2,8 +2,6 @@ package emediaplayerplugin.model;
 
 import java.awt.Desktop;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +35,8 @@ public class MediaPlayer extends MediaModelObject {
 	public static final String ITEM = "item";
 	public static final String URL = "URL";
 	public static final String REMOVE_ITEM = "removeItem";
+	public static final String MOVE_ITEM = "moveItem";
+
 
 	private static final String GET_MODE = "getMode";
 	private static final String SET_MODE = "setMode";
@@ -84,7 +84,7 @@ public class MediaPlayer extends MediaModelObject {
 		if (propertiesFile.exists()) {
 			Properties properties = new Properties();
 			try {
-				properties.load(new FileReader(propertiesFile));
+				FavouritesRepository.loadProperties(properties, propertiesFile);
 				playList = properties.getProperty(CURRENT_PLAYLIST);
 				setRepeat(Boolean.valueOf(properties.getProperty(LOOP)));
 				setShuffle(Boolean.valueOf(properties.getProperty(SHUFFLE)));
@@ -104,7 +104,7 @@ public class MediaPlayer extends MediaModelObject {
 	}
 
 	public List<MediaFile> getPlayList() {
-		return playList;
+		return new ArrayList<MediaFile>(playList);
 	}
 
 	public void addToPlayList(String fileURL, boolean play) {
@@ -125,13 +125,34 @@ public class MediaPlayer extends MediaModelObject {
 	
 	public void playItem(int index) {
 		MediaFile media = playList.get(index);
+		playItem(media);
+	}
+	
+	public void playItem(MediaFile media) {
 		getControl().playItem(media.getMedia());
 	}
  	
-	public void removeItem(int index) {
+	public void removeItem(MediaFile mediaFile, boolean notify) {
+		removeItem(playList.indexOf(mediaFile), notify);
+	}
+	
+	private void removeItem(int index, boolean notify) {
 	    MediaFile mediaFile = playList.remove(index);
         invoke(oPlayList, REMOVE_ITEM, mediaFile.getMedia());
-        notifyListener();
+        if (notify) {
+        	notifyListener();
+        }
+	}
+	
+	public void moveItem(MediaFile mediaFile, boolean up, boolean notify) {
+		int currentIndex =  playList.indexOf(mediaFile);
+		int newIndex = up ? currentIndex -1 : currentIndex + 1;
+        invoke(oPlayList, MOVE_ITEM, new Variant[] {new Variant((long)currentIndex), new Variant((long)newIndex)});
+        playList.remove(currentIndex);
+        playList.add(newIndex, mediaFile);
+        if (notify) {
+        	notifyListener();
+        }
 	}
 	
 
@@ -167,7 +188,7 @@ public class MediaPlayer extends MediaModelObject {
 		properties.put(CURRENT_PLAYLIST, playList);
 		properties.put(LOOP,  "" + isRepeat());
 		properties.put(SHUFFLE, "" + isShuffle());
-		properties.store(new FileWriter(propertiesFile), null);
+		FavouritesRepository.storeProperties(properties, propertiesFile);
 		if (EMediaConstants.canNotify()) {
 
 			Runnable locationRunnable = new Runnable() {
