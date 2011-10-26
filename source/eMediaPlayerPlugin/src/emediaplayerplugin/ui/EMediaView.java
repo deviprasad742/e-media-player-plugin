@@ -92,6 +92,7 @@ import org.eclipse.ui.part.ViewPart;
 import org.osgi.framework.Bundle;
 
 import emediaplayerplugin.EMediaPlayerActivator;
+import emediaplayerplugin.actions.CheckForUpdatesAction;
 import emediaplayerplugin.actions.CopyFilesAction;
 import emediaplayerplugin.actions.ExportFilesAction;
 import emediaplayerplugin.model.EMediaConstants;
@@ -186,6 +187,9 @@ public class EMediaView extends ViewPart {
 
 	private void fillLocalPullDown(IMenuManager menuManager) {
 		menuManager.add(preferencesAction);
+		CheckForUpdatesAction checkForUpdatesAction = new CheckForUpdatesAction();
+		menuManager.add(checkForUpdatesAction);
+		checkForUpdatesAction.run();
 	}
 
 	private void createFavouritesSection() {
