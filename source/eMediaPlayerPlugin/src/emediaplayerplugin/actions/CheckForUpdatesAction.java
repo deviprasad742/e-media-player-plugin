@@ -15,6 +15,7 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.action.Action;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.browser.IWebBrowser;
 import org.osgi.framework.Bundle;
 
 import emediaplayerplugin.EMediaPlayerActivator;
@@ -24,6 +25,7 @@ import emediaplayerplugin.ui.notifications.NotificationType;
 
 public class CheckForUpdatesAction extends Action {
 	private static final String PLUGIN_LOCATION_URL = "http://e-media-player-plugin.googlecode.com/svn/update-site/eMediaPlayerUpdateSite/plugins/";
+    private static final String PLUGIN_PRODUCT_URL = "http://marketplace.eclipse.org/content/emediaplayer";
 	private static final String PLUGIN_REGEX = ".*(eMediaPlayerPlugin_(.*).jar).*";
 	
 	public CheckForUpdatesAction() {
@@ -52,7 +54,9 @@ public class CheckForUpdatesAction extends Action {
 				@Override
 				public void run() {
 					try {
-						PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(PLUGIN_LOCATION_URL));
+						IWebBrowser externalBrowser = PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser();
+						externalBrowser.openURL(new URL(PLUGIN_LOCATION_URL));
+						externalBrowser.openURL(new URL(PLUGIN_PRODUCT_URL));
 					} catch (Exception e) {
 						EMediaPlayerActivator.getDefault().logException(e);
 					}
