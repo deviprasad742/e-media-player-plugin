@@ -25,7 +25,14 @@ public class EMediaConstants {
 	public static final Image IMAGE_MUSIC_FILE = createImage("icons/music_file.png");
 	public static final Image IMAGE_PLAY_URL = createImage("icons/play_url.png");
 	public static final Image FAV_MUSIC_FILE = createImage("icons/fav.png");
+	public static final Image IMAGE_GOOGLE = createImage("icons/google.png");
+	public static final Image IMAGE_YOUTUBE= createImage("icons/youtube.png");
 
+
+	public static final String GOOGLE_URL = "http://www.google.com/";
+	public static final String YOUTUBE_URL = "http://www.youtube.com/";
+
+	
 	public static final String EMEDIA_SHARED_FOLDER = "#eMediaShared";
 	public static final String EMEDIA_SHARED_URL = "[#eMediaSharedUrl]:";
 

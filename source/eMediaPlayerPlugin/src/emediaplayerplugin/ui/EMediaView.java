@@ -70,6 +70,7 @@ import org.eclipse.swt.ole.win32.OLE;
 import org.eclipse.swt.ole.win32.OleAutomation;
 import org.eclipse.swt.ole.win32.OleControlSite;
 import org.eclipse.swt.ole.win32.OleFrame;
+import org.eclipse.swt.ole.win32.Variant;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
@@ -135,6 +136,8 @@ public class EMediaView extends ViewPart {
 	private Text playListFilterText;
 
 	private Combo favUsersCombo;
+	private OleControlSite ieSite;
+	private Text urlText;
 	public static final String NAME = "Name";
 	public static final String DURATION = "Duration";
 	public static final String ALBUM = "Album";
@@ -155,8 +158,89 @@ public class EMediaView extends ViewPart {
 		createPlayListSection();
 		createLibrarySection();
 		createFavouritesSection();
+		createIESection();
 		fillToolbar();
 		addDisposeListeners();
+	}
+
+	private void createIESection() {
+		TabItem ieTab = new TabItem(container, SWT.NONE);
+		ieTab.setText("Browser");
+		Composite ieComposite = new Composite(container, SWT.BORDER);
+		ieTab.setControl(ieComposite);
+		GridLayoutFactory.fillDefaults().numColumns(4).margins(2,2).applyTo(ieComposite);
+		
+		Button googleButton = new Button(ieComposite, SWT.PUSH);
+		googleButton.setImage(EMediaConstants.IMAGE_GOOGLE);
+		GridDataFactory.swtDefaults().applyTo(googleButton);
+		Button youtubeButton = new Button(ieComposite, SWT.PUSH);
+		youtubeButton.setImage(EMediaConstants.IMAGE_YOUTUBE);
+		GridDataFactory.swtDefaults().applyTo(youtubeButton);
+
+	    urlText = new Text(ieComposite, SWT.BORDER);
+		GridDataFactory.fillDefaults().grab(true, false).applyTo(urlText);
+		urlText.setText(EMediaConstants.GOOGLE_URL);
+		Button goButton = new Button(ieComposite, SWT.PUSH);
+		goButton.setText("Go");
+		GridDataFactory.swtDefaults().applyTo(goButton);
+
+		try {
+			OleFrame ieFrame = new OleFrame(ieComposite, SWT.NONE);
+			ieSite = new OleControlSite(ieFrame, SWT.NONE, "Shell.Explorer");
+			ieSite.doVerb(OLE.OLEIVERB_INPLACEACTIVATE);
+			GridDataFactory.fillDefaults().span(4,1).grab(true, true).applyTo(ieFrame);
+		} catch (SWTError e) {
+			System.out.println("Unable to open activeX control");
+			return;
+		}
+
+		googleButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				invokeURL(EMediaConstants.GOOGLE_URL);
+			}
+		});
+		
+		youtubeButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				invokeURL(EMediaConstants.YOUTUBE_URL);
+			}
+		});
+		
+		goButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				invokeURL(urlText.getText());
+			}
+		});
+		
+		urlText.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				if (e.keyCode == '\r') {
+					invokeURL(urlText.getText());
+				}
+			}
+		});
+		
+		invokeURL(EMediaConstants.GOOGLE_URL);
+
+	}
+
+	public void invokeURL(String url) {
+		// IWebBrowser
+		final OleAutomation webBrowser = new OleAutomation(ieSite);
+		// Navigate to a web site
+		int[] ids = webBrowser.getIDsOfNames(new String[] { "Navigate", "URL" });
+		if (!url.contains("www.")) {
+			url = "http://www.google.com/search?q=" + url;
+		}
+		urlText.setText(url);
+		Variant[] rgvarg = new Variant[] { new Variant(url) };
+		int[] rgdispidNamedArgs = new int[] { ids[1] };
+		webBrowser.invoke(ids[0], rgvarg, rgdispidNamedArgs);
+		webBrowser.dispose();
 	}
 
 	private void fillToolbar() {
@@ -1128,7 +1212,7 @@ public class EMediaView extends ViewPart {
 		});
 
 	}
-
+	
 	private Action preferencesAction = new Action("Preferences") {
 		public void run() {
 			EMediaPreferencesDialog dialog = new EMediaPreferencesDialog(mediaLibrary.getLocalPath(), mediaLibrary.getRemotePath(), favouritesRepository.getUserName());

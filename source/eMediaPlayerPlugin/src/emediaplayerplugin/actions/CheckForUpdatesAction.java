@@ -47,7 +47,7 @@ public class CheckForUpdatesAction extends Action {
 		Bundle bundle = EMediaPlayerActivator.getDefault().getBundle();
 		String current_version = (String)bundle.getHeaders().get("Bundle-Version");
 		String onlineVersion = getPluginVersion(PLUGIN_LOCATION_URL);
-		if (!current_version.equals(onlineVersion)) {
+		if (onlineVersion != null && !current_version.equals(onlineVersion)) {
 			Runnable onClick = new Runnable() {
 				@Override
 				public void run() {
