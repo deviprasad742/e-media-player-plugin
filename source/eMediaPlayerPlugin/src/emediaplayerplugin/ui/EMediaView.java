@@ -143,7 +143,6 @@ public class EMediaView extends ViewPart {
 	public static final String ALBUM = "Album";
 	public static final String HITS = "Hits";
 	public static final String URL = "Location";
-	public static final int FOLDER_LIMIT = 300;
 
 	public EMediaView() {
 	}
@@ -403,16 +402,24 @@ public class EMediaView extends ViewPart {
          refreshFavouritesView();
 	}
 	
+	private Job refreshJob = new Job("Refreshing Library") {
+		@Override
+		protected IStatus run(IProgressMonitor monitor) {
+			Runnable runnable = new Runnable() {
+				@Override
+				public void run() {
+					Object[] elements = libraryViewer.getExpandedElements();
+					libraryViewer.refresh();
+					libraryViewer.setExpandedElements(elements);
+				}
+			};
+			safelyRunInUI(runnable);
+			return Status.OK_STATUS;
+		}
+	};
+	
 	public void refreshLibraryView() {
-		Runnable runnable = new Runnable() {
-			@Override
-			public void run() {
-				Object[] elements = libraryViewer.getExpandedElements();
-				libraryViewer.refresh();
-				libraryViewer.setExpandedElements(elements);
-			}
-		};
-		safelyRunInUI(runnable);
+		refreshJob.schedule(200);
 	}
 	
 	private void refreshFavouritesView() {
@@ -529,7 +536,7 @@ public class EMediaView extends ViewPart {
 		GridDataFactory.fillDefaults().grab(true, false).span(2, 1).applyTo(filterComposite);
 		GridLayoutFactory.fillDefaults().numColumns(2).applyTo(filterComposite);
 
-		String toolTip = "Type text and press 'Enter' key to filter songs based on the text. Files will be automatically filtered without pressing enter key if there are optimum number of folders";
+		String toolTip = "Enter the filter text";
 		Label label = new Label(filterComposite, SWT.NONE);
 		label.setText("Filter: ");
 		label.setToolTipText(toolTip);
@@ -541,19 +548,10 @@ public class EMediaView extends ViewPart {
 		musicLibraryFilterText.addModifyListener(new ModifyListener() {
 			@Override
 			public void modifyText(ModifyEvent e) {
-				if (!isEnterMode) {
-					refreshLibraryView();
-				}
+				refreshLibraryView();
 			}
 		});
 
-		musicLibraryFilterText.addKeyListener(new KeyAdapter() {
-			public void keyPressed(KeyEvent e) {
-				if (e.keyCode == '\r' && isEnterMode) {
-					refreshLibraryView();
-				}
-			}
-		});
 
 		libraryViewer = new TreeViewer(libraryComposite);
 		GridDataFactory.fillDefaults().grab(true, true).applyTo(libraryViewer.getControl());
@@ -1277,7 +1275,6 @@ public class EMediaView extends ViewPart {
 	};
 	
 
-	private boolean isEnterMode;
 	private int folderCount;
 	private Button deleteFromPlaylistButton;
 	private Button clearPlaylistButton;
@@ -1309,7 +1306,7 @@ public class EMediaView extends ViewPart {
 		public Object[] getElements(Object inputElement) {
 			if (inputElement instanceof MediaLibrary) {
 				Object[] array = mediaLibrary.getFolders().toArray();
-				isEnterMode = (folderCount = array.length) > FOLDER_LIMIT;
+				folderCount = array.length;
 				return array;
 			}
 			return new Object[] {};
