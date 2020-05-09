@@ -13,4 +13,6 @@ Whats New?
 1. Separate tab for IE browser with quick links to YouTube and Google.
 2. Automatic notifications when plugin update is available.'
 
-https://marketplace.eclipse.org/sites/default/files/Video.png
+![Media Player](https://github.com/deviprasad742/e-media-player-plugin/blob/master/eMediaPlayer.png)
+
+
